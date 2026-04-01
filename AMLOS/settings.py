@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import dj_database_url
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -77,14 +78,24 @@ DATABASE_URL = "postgresql://postgres.ejqbeibaopjwzwvxcudu:getdev.com%40123@aws-
 DATABASES = {
     "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
 }
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': 'postgres',       # aapne local install me jo DB name diya hai
+#         'USER': 'postgres',       # local user
+#         'PASSWORD': 'admin',  # local postgres ka password
+#         'HOST': '127.0.0.1',      # ya 'localhost'
+#         'PORT': '5432',           # default PostgreSQL port
+#     }
+# }
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'postgres',       # aapne local install me jo DB name diya hai
-        'USER': 'postgres',       # local user
-        'PASSWORD': 'admin',  # local postgres ka password
-        'HOST': '127.0.0.1',      # ya 'localhost'
-        'PORT': '5432',           # default PostgreSQL port
+        'NAME': 'postgres',  # Your Supabase database name
+        'USER': 'postgres.ejqbeibaopjwzwvxcudu',  # Supabase DB username
+        'PASSWORD': 'Getdev.com@123',  # Supabase DB password
+        'HOST': 'aws-1-ap-northeast-2.pooler.supabase.com',  # Supabase host
+        'PORT': '6543',  # Supabase port (default pooler port is 6543)
     }
 }
 
@@ -128,3 +139,21 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# settings.py
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=12),  # default is 5
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
