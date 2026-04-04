@@ -2,7 +2,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from accounts.models import User, School
+from accounts.models import User, School , Student
 from django.db import transaction
 # Admin signup serializer.
 from rest_framework import serializers
@@ -113,15 +113,81 @@ class CreateSchoolSerializer(serializers.Serializer):
 
             return school
 
-class CreateUserSerializer(serializers.ModelSerializer):
+
+class CreateStudentSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True)
+
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+
     class Meta:
-        model = User
-        fields = ['username', 'password', 'email', 'first_name', 'last_name']
-        extra_kwargs = {'password': {'write_only': True}}
+        model = Student
+        fields = [
+            'username',
+            'password',
+            'email',
+            'first_name', 
+            'last_name',   
+            'roll_number',
+            'grade',
+            'date_of_birth',
+            'gpa'
+        ]
 
     def create(self, validated_data):
+        request = self.context.get('request')
+        school = request.user.school_profile
+
+        username = validated_data.pop('username')
         password = validated_data.pop('password')
-        user = User(**validated_data)
-        user.set_password(password)
+        email = validated_data.pop('email')
+
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+
+        # ✅ Create User
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            role=User.Role.STUDENT,
+            first_name=first_name,
+            last_name=last_name,
+            created_by=request.user
+        )
+
+        student = Student.objects.create(
+            user=user,
+            school=school,
+            **validated_data
+        )
+
+        return student
+    
+    def update(self, instance, validated_data):
+        user = instance.user
+        first_name = validated_data.pop('first_name', None)
+        last_name = validated_data.pop('last_name', None)
+        email = validated_data.pop('email', None)
+        password = validated_data.pop('password', None)
+
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if email is not None:
+            user.email = email
+            user.username = email
+        if password is not None:
+            user.set_password(password)
+
         user.save()
-        return user    
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+

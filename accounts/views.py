@@ -10,9 +10,11 @@ from rest_framework.permissions import IsAuthenticated
 from utils.response_builder import response_builder
 from rest_framework.views import APIView
 from rest_framework import status
-from accounts.serializers import AdminSignupSerializer, CreateSchoolSerializer , LoginSerializer
+from accounts.serializers import *
 from rest_framework.permissions import AllowAny
 from utils.jwt_utils import get_tokens_for_user 
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.shortcuts import get_object_or_404
 
 class LoginView(APIView):
     permission_classes = []  # public API
@@ -133,7 +135,7 @@ class CreateSchoolView(APIView):
         )
 class CreateTeacherView(APIView):
     permission_classes = [IsRole]
-    allowed_roles = ['ADMIN', 'SCHOOL']
+    allowed_roles = [ 'SCHOOL']
 
     def post(self, request):
         data = request.data
@@ -146,17 +148,112 @@ class CreateTeacherView(APIView):
 
         return Response({"message": "Teacher created"})
     
+
+
 class CreateStudentView(APIView):
-    permission_classes = [IsRole]
+    permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['SCHOOL']
 
     def post(self, request):
-        data = request.data
+        serializer = CreateStudentSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        auth = JWTAuthentication()
+        header = auth.get_header(request)
+        raw_token = auth.get_raw_token(header)
+        validated_token = auth.get_validated_token(raw_token)
 
-        user = User.objects.create_user(
-            username=data['username'],
-            password=data['password'],
-            role='USER'
+        # ✅ Log token payload
+        print(f"Decoded Token: {validated_token}")
+
+        # You can also access fields
+        print(f"User ID: {validated_token.get('user_id')}")
+        print(f"Role: {validated_token.get('role')}")
+
+        if serializer.is_valid():
+            student = serializer.save()
+
+            data = {
+                "student": {
+                    "id": student.id,
+                    "username": student.user.username,
+                    "email": student.user.email,
+                    "roll_number": student.roll_number,
+                    "grade": student.grade,
+                    "gpa": student.gpa,
+                    "school": student.school.school_name
+                }
+            }
+
+            return response_builder(
+                success=True,
+                message="Student created successfully",
+                data=data,
+                status_code=status.HTTP_201_CREATED
+            )
+
+        # flatten errors
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+
+        return response_builder(
+            success=False,
+            message=errors,
+            data=None,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+    
+class UpdateStudentView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def patch(self, request, student_id):
+        school = request.user.school_profile
+
+        student = get_object_or_404(Student, id=student_id, school=school)
+
+        serializer = CreateStudentSerializer(
+            student,
+            data=request.data,
+            partial=True, 
+            context={'request': request}
         )
 
-        return Response({"message": "Student created"})
+        if serializer.is_valid():
+            updated_student = serializer.save()
+
+            return response_builder(
+                success=True,
+                message="Student updated successfully",
+                data={
+                    "student_id": updated_student.id
+                },
+                status_code=status.HTTP_200_OK
+            )
+
+        return response_builder(
+            success=False,
+            message=serializer.errors,
+            data=None,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class DeleteStudentView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def delete(self, request, student_id):
+        school = request.user.school_profile
+
+        
+        student = get_object_or_404(Student, id=student_id, school=school)
+ 
+        student.user.delete()  
+
+        return response_builder(
+            success=True,
+            message="Student deleted successfully",
+            data=None,
+            status_code=status.HTTP_200_OK
+        )

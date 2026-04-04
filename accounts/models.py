@@ -1,8 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from django.contrib.auth.models import AbstractUser
-from django.db import models
 
+ 
 class User(AbstractUser):
 
     class Role(models.TextChoices):
@@ -11,13 +10,12 @@ class User(AbstractUser):
         TEACHER = 'TEACHER', 'Teacher'
         STUDENT = 'STUDENT', 'Student'
 
+  
+    email = models.EmailField(unique=True, db_index=True)
+
     role = models.CharField(max_length=20, choices=Role.choices, db_index=True)
 
-    email = models.EmailField(unique=True, db_index=True)
     phone = models.CharField(max_length=15, blank=True, null=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
 
     created_by = models.ForeignKey(
         'self',
@@ -27,19 +25,28 @@ class User(AbstractUser):
         related_name='created_users'
     )
 
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+  
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['username'] 
+
+    class Meta:
+        db_table = "users"
+
     def get_profile(self):
         return {
             self.Role.ADMIN: getattr(self, 'admin_profile', None),
             self.Role.SCHOOL: getattr(self, 'school_profile', None),
-            self.Role.TEACHER: getattr(self, 'teacher', None),
-            self.Role.STUDENT: getattr(self, 'student', None),
+            self.Role.TEACHER: getattr(self, 'teacher_profile', None),
+            self.Role.STUDENT: getattr(self, 'student_profile', None),
         }.get(self.role)
-    class Meta:
-        db_table = "users" 
 
     def __str__(self):
-        return self.username
+        return f"{self.email} ({self.role})"
 
+ 
 class School(models.Model):
     user = models.OneToOneField(
         User,
@@ -57,16 +64,15 @@ class School(models.Model):
 
     class Meta:
         db_table = "schools"
+
     def __str__(self):
         return self.school_name
-    
-
-# 
+ 
 class Student(models.Model):
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='student'
+        related_name='student_profile'
     )
 
     school = models.ForeignKey(
@@ -86,15 +92,15 @@ class Student(models.Model):
 
     class Meta:
         db_table = "students"
+
     def __str__(self):
-        return f"Student: {self.user.username}"
-
-
+        return f"{self.user.email} - {self.roll_number}"
+ 
 class Teacher(models.Model):
     user = models.OneToOneField(
         User,
         on_delete=models.CASCADE,
-        related_name='teacher'
+        related_name='teacher_profile'
     )
 
     school = models.ForeignKey(
@@ -113,11 +119,10 @@ class Teacher(models.Model):
 
     class Meta:
         db_table = "teachers"
+
     def __str__(self):
-        return f"Teacher: {self.user.username}"
-    
-
-
+        return f"{self.user.email} - {self.subject}"
+ 
 class Admin(models.Model):
     user = models.OneToOneField(
         User,
@@ -128,6 +133,7 @@ class Admin(models.Model):
     access_level = models.CharField(max_length=50, default='SUPER')
 
     class Meta:
-        db_table = "admin"
+        db_table = "admins"
+
     def __str__(self):
-        return f"Admin: {self.user.username}"
+        return f"{self.user.email} ({self.access_level})"
