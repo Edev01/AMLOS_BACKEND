@@ -17,7 +17,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 
 class LoginView(APIView):
-    permission_classes = []  # public API
+    permission_classes = []  
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -25,13 +25,12 @@ class LoginView(APIView):
             user = serializer.validated_data['user']
             tokens = get_tokens_for_user(user)
 
-            # Get the profile of the user depending on role
-            profile = user.get_profile()  # you already have get_profile() in User model
+            profile = user.get_profile()   
             profile_data = {}
             if profile:
-                # Convert profile model to dict
+                
                 profile_data = {
-                    field.name: getattr(profile, field.name)
+                    field.name: getattr(profile, field.attname)
                     for field in profile._meta.fields
                     if field.name != 'id' and field.name != 'user'
                 }
@@ -148,7 +147,6 @@ class CreateTeacherView(APIView):
 
         return Response({"message": "Teacher created"})
     
-
 
 class CreateStudentView(APIView):
     permission_classes = [IsAuthenticated, IsRole]

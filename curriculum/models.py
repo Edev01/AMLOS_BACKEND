@@ -2,8 +2,8 @@ from django.db import models
 
 class Subject(models.Model):
     name = models.CharField(max_length=100)
-    description = models.TextField(blank=True)
-    board_exam_date = models.DateField(null=True, blank=True)
+    description = models.TextField(blank=False)
+    grade = models.CharField(max_length=20, default="", blank=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

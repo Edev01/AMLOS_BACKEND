@@ -133,7 +133,7 @@ class Admin(models.Model):
     access_level = models.CharField(max_length=50, default='SUPER')
 
     class Meta:
-        db_table = "admins"
+        db_table = "admin"
 
     def __str__(self):
         return f"{self.user.email} ({self.access_level})"
