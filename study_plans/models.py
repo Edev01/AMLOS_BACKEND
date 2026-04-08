@@ -33,7 +33,7 @@ class StudyPlan(models.Model):
     
     # Recalculation tracking
     is_completable = models.BooleanField(default=True)
-    last_recalculated_at = models.DateField(default=timezone.now)
+    last_recalculated_at = models.DateField(auto_now_add=True)
     
     custom_pattern = models.JSONField(null=True, blank=True)
     subject_order = models.JSONField(null=True, blank=True) # Now supports nested lists for phases

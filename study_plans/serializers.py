@@ -35,8 +35,20 @@ class CreateStudyPlanSerializer(serializers.ModelSerializer):
         if data.get('mode') == StudyPlan.Mode.CUSTOM and not data.get('custom_pattern'):
             raise serializers.ValidationError("custom_pattern is required for CUSTOM mode.")
             
-        # Optional: check if total weight fits in window on the backend too
+        # Verify SLOs exist
+        slo_ids = data.get('slo_ids', [])
+        existing_count = SLO.objects.filter(id__in=slo_ids).count()
+        if existing_count != len(set(slo_ids)):
+            raise serializers.ValidationError("One or more provided SLO IDs do not exist.")
+            
         return data
+
+    def create(self, validated_data):
+        # Create a copy so we don't modify the original validated_data dictionary
+        # which is still needed by the View/Engine logic.
+        model_data = validated_data.copy()
+        model_data.pop('slo_ids', None)
+        return StudyPlan.objects.create(**model_data)
 
 class StudyPlanSerializer(serializers.ModelSerializer):
     class Meta:

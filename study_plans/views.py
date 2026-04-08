@@ -21,6 +21,7 @@ class CreateStudyPlanView(APIView):
 
     def post(self, request):
         serializer = CreateStudyPlanSerializer(data=request.data)
+        if serializer.is_valid():
             # Check if user already has an active plan
             if StudyPlan.objects.filter(user=request.user, status=StudyPlan.Status.ACTIVE).exists():
                 return response_builder(
