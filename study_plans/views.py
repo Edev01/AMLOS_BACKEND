@@ -20,10 +20,22 @@ class CreateStudyPlanView(APIView):
     allowed_roles = ['ADMIN', 'STUDENT']
 
     def post(self, request):
-        serializer = CreateStudyPlanSerializer(data=request.data)
+        user = request.user
+        data = request.data
+        serializer = CreateStudyPlanSerializer(data=data)
         if serializer.is_valid():
+            if user.role == 'STUDENT':
+                data['grade'] = user.get_profile().grade
+            elif user.role == 'ADMIN':
+                data['grade'] = data.get('grade')
+                if not data['grade']:
+                    return response_builder(
+                        success=False,
+                        message="Grade is required for ADMIN.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
             # Check if user already has an active plan
-            if StudyPlan.objects.filter(user=request.user, status=StudyPlan.Status.ACTIVE).exists():
+            if StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists():
                 return response_builder(
                     success=False,
                     message="You already have an active study plan. Please finish it before creating a new one.",

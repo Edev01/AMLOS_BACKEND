@@ -30,9 +30,15 @@ class SLO(models.Model):
         LOW = 'LOW', 'Low'
 
     chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='slos')
-    name = models.CharField(max_length=255)
+    slo_no = models.CharField(max_length=50, blank=True, null=True)
+    name = models.CharField(max_length=500)
     difficulty_frequency = models.CharField(max_length=10, choices=Difficulty.choices)
-    estimated_time = models.IntegerField(help_text="Estimated time in minutes")
+    estimated_time = models.IntegerField(help_text="Estimated time in minutes", blank=True, null=True)
+    form_of_assessment = models.CharField(max_length=255, blank=True, null=True)
+    remarks = models.TextField(blank=True, null=True)
+    google_drive_link = models.URLField(max_length=500, blank=True, null=True)
+    google_site = models.URLField(max_length=500, blank=True, null=True)
+    priority_score = models.IntegerField(default=0, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
