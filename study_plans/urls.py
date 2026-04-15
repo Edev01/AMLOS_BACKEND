@@ -35,7 +35,7 @@ urlpatterns = [
     # ROLE: STUDENT, ADMIN
     path('<int:plan_id>/day/<str:date>', StudyPlanDayView.as_view(), name='study-plan-day'),
 
-    # USAGE: Manually finish an active plan early so a new one can be created
+    # USAGE: Manually finish an active  plan early so a new one can be created.
     # ROLE: STUDENT, ADMIN
     path('<int:plan_id>/complete', CompleteStudyPlanView.as_view(), name='complete-study-plan'),
 
