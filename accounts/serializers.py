@@ -191,3 +191,27 @@ class CreateStudentSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
 
+class SchoolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = School
+        fields = '__all__'
+        read_only_fields = ('user',)
+
+class StudentSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = Student
+        fields = [
+            'id', 
+            'first_name', 
+            'last_name', 
+            'email', 
+            'roll_number', 
+            'grade', 
+            'date_of_birth', 
+            'gpa', 
+            'enrollment_date'
+        ]    

@@ -255,3 +255,36 @@ class DeleteStudentView(APIView):
             data=None,
             status_code=status.HTTP_200_OK
         )
+
+
+class GetAllSchoolsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request):
+        schools = School.objects.all()
+        serializer = SchoolSerializer(schools, many=True)
+        return response_builder(
+            success=True,
+            message="Schools fetched successfully",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+class GetSchoolStudentsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request, school_id):
+        school = get_object_or_404(School, id=school_id)
+        students = Student.objects.filter(school=school)
+        serializer = StudentSerializer(students, many=True)
+        return response_builder(
+            success=True,
+            message=f"Students for {school.school_name} fetched successfully",
+            data={
+                "school_name": school.school_name,
+                "students": serializer.data
+            },
+            status_code=status.HTTP_200_OK
+        )    

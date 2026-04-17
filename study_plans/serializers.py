@@ -44,8 +44,6 @@ class CreateStudyPlanSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Create a copy so we don't modify the original validated_data dictionary
-        # which is still needed by the View/Engine logic.
         model_data = validated_data.copy()
         model_data.pop('slo_ids', None)
         return StudyPlan.objects.create(**model_data)
