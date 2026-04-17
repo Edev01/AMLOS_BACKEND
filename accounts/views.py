@@ -16,6 +16,8 @@ from utils.jwt_utils import get_tokens_for_user
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 
+from study_plans.models import StudyPlan
+
 class LoginView(APIView):
     permission_classes = []  
 
@@ -34,6 +36,10 @@ class LoginView(APIView):
                     for field in profile._meta.fields
                     if field.name != 'id' and field.name != 'user'
                 }
+
+            # Add study plan status
+            is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
+            profile_data['is_plan_active'] = is_plan_active
 
             user_data = {
                 "id": user.id,
