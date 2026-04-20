@@ -61,6 +61,7 @@ class StudyPlanSLO(models.Model):
     chapter_name = models.CharField(max_length=200)
     estimated_time = models.IntegerField()
     
+    
     # Progress tracking
     is_completed = models.BooleanField(default=False)
 
