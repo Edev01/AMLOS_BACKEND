@@ -174,5 +174,5 @@ CORS_ALLOW_CREDENTIALS = True
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "https://your-production-frontend.com",
+    "production url to be set here in future.",
 ]
