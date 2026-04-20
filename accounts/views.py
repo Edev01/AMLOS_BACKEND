@@ -37,7 +37,6 @@ class LoginView(APIView):
                     if field.name != 'id' and field.name != 'user'
                 }
 
-            # Add study plan status
             is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
             profile_data['is_plan_active'] = is_plan_active
 
