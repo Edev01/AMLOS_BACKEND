@@ -28,8 +28,13 @@ class StudyPlan(models.Model):
     end_date = models.DateField()
     
     # New Time Limits
-    min_study_time_daily = models.IntegerField(default=120) # mins
-    max_study_time_daily = models.IntegerField(default=300) # mins (cap 5h)
+    min_study_time_daily = models.IntegerField(default=120) 
+    max_study_time_daily = models.IntegerField(default=300) 
+
+    #streak variable
+    current_streak = models.IntegerField(default=0)
+    last_streak_date = models.DateField(null=True, blank=True)
+    
     
     # Recalculation tracking
     is_completable = models.BooleanField(default=True)

@@ -172,10 +172,18 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+# Allow all origins during local development.
+# Set to False and use CORS_ALLOWED_ORIGINS in production.
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# These take effect when CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000"
-    # "production url to be set here in future.",
+    "http://localhost:3000",       # React/Flutter web dev server
+    "http://localhost:8080",       # Flutter web alt port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:8080",
+    "http://192.168.3.103:3000",   # LAN web access
+    "http://192.168.3.103:8000",   # LAN direct access
+    # "https://your-production-domain.com",
 ]

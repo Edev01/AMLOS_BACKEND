@@ -8,12 +8,13 @@ class SLODetailSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'estimated_time']
 
 class StudyPlanSLOSerializer(serializers.ModelSerializer):
+    slo_name = serializers.CharField(source='slo.name', read_only=True)
     google_drive_link = serializers.CharField(source='slo.google_drive_link', read_only=True)
     difficulty = serializers.CharField(source='slo.difficulty_frequency', read_only=True)
 
     class Meta:
         model = StudyPlanSLO
-        fields = ['id', 'slo', 'scheduled_date', 'order_in_day', 'subject_name', 'chapter_name', 'estimated_time', 'is_completed', 'google_drive_link', 'difficulty']
+        fields = ['id', 'slo', 'slo_name', 'scheduled_date', 'order_in_day', 'subject_name', 'chapter_name', 'estimated_time', 'is_completed', 'google_drive_link', 'difficulty']
 
 class CreateStudyPlanSerializer(serializers.ModelSerializer):
     slo_ids = serializers.ListField(
@@ -65,6 +66,7 @@ class StudyPlanDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'plan_type', 'grade', 'mode', 'start_date', 'end_date',
             'min_study_time_daily', 'max_study_time_daily', 'is_completable',
             'total_slo_time', 'total_available_time', 
+            'current_streak', 
             'status', 'created_at', 'scheduled_slos'
         ]
 

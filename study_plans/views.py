@@ -14,6 +14,8 @@ from .serializers import (
 )
 from .engine import StudyPlanEngine
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
 
 class CreateStudyPlanView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
@@ -155,6 +157,13 @@ class GetActivePlanView(APIView):
         
         if recalculated:
              plan.refresh_from_db()
+        
+        # Streak break check
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        if plan.last_streak_date and plan.last_streak_date < yesterday:
+            plan.current_streak = 0
+            plan.save()
 
         serializer = StudyPlanDetailSerializer(plan)
         return response_builder(
@@ -191,6 +200,13 @@ class StudyPlanDetailView(APIView):
         if recalculated:
              plan.refresh_from_db() # Get updated is_completable, etc.
 
+        # Streak break check
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        if plan.last_streak_date and plan.last_streak_date < yesterday:
+            plan.current_streak = 0
+            plan.save()
+
         serializer = StudyPlanDetailSerializer(plan)
         return response_builder(
             success=True,
@@ -207,6 +223,24 @@ class MarkSLOCompleteView(APIView):
         plan_slo = get_object_or_404(StudyPlanSLO, id=plan_slo_id, plan__user=request.user)
         plan_slo.is_completed = True
         plan_slo.save()
+        
+        # Streak logic
+        plan = plan_slo.plan
+        today = timezone.now().date()
+        yesterday = today - timedelta(days=1)
+        
+        if plan.last_streak_date == yesterday:
+            plan.current_streak += 1
+            plan.last_streak_date = today
+        elif plan.last_streak_date == today:
+            # Already completed something today, streak stays the same
+            pass
+        else:
+            # Streak broken or first time
+            plan.current_streak = 1
+            plan.last_streak_date = today
+            
+        plan.save()
         
         return response_builder(
             success=True,
