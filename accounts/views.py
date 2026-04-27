@@ -37,8 +37,9 @@ class LoginView(APIView):
                     if field.name != 'id' and field.name != 'user'
                 }
 
-            is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
-            profile_data['is_plan_active'] = is_plan_active
+            if user.role == "STUDENT":
+                is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
+                profile_data['is_plan_active'] = is_plan_active
 
             user_data = {
                 "id": user.id,
