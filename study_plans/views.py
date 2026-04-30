@@ -10,10 +10,13 @@ from .serializers import (
     StudyPlanSerializer, 
     StudyPlanDetailSerializer, 
     ValidatePlanSerializer,
+    StudyPlanHistorySerializer,
     StudyPlanSLOSerializer
 )
 from .engine import StudyPlanEngine
 from django.db import models
+from django.db.models import Prefetch
+
 from django.utils import timezone
 from datetime import timedelta
 
@@ -258,5 +261,29 @@ class StudyPlanDayView(APIView):
         return response_builder(
             success=True,
             message=f"SLOs for {date} fetched.",
+            data=serializer.data
+        )
+class GetPlanHistory(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['STUDENT']
+
+    def get(self, request):
+        user = request.user
+
+        plans = StudyPlan.objects.filter(user=user)\
+            .exclude(status=StudyPlan.Status.ACTIVE)\
+            .prefetch_related(
+                Prefetch(
+                    'scheduled_slos',
+                    queryset=StudyPlanSLO.objects.select_related('slo')
+                )
+            )\
+            .order_by('-created_at')
+
+        serializer = StudyPlanHistorySerializer(plans, many=True)
+
+        return response_builder(
+            success=True,
+            message="Study plan history fetched with SLOs.",
             data=serializer.data
         )

@@ -120,7 +120,8 @@ class CreateSchoolView(APIView):
                     "registration_number": school.registration_number,
                     "address": school.address,
                     "website": school.website,
-                    "established_year": school.established_year
+                    "established_year": school.established_year,
+                    "principal_name": school.principal_name
                 }
             }
 
@@ -294,3 +295,71 @@ class GetSchoolStudentsView(APIView):
             },
             status_code=status.HTTP_200_OK
         )    
+
+
+class UpdateSchoolView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def patch(self, request, school_id):
+        try:
+            school = School.objects.get(id=school_id)
+        except School.DoesNotExist:
+            return response_builder(
+                success=False,
+                message="School not found",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = UpdateSchoolSerializer(
+            school,
+            data=request.data,
+            partial=True  
+        )
+
+        if serializer.is_valid():
+            serializer.save()
+
+            return response_builder(
+                success=True,
+                message="School updated successfully",
+                data={
+                    "school": serializer.data
+                },
+                status_code=status.HTTP_200_OK
+            )
+
+        return response_builder(
+            success=False,
+            message=list(serializer.errors.values())[0][0],
+            data=None,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+class DeleteSchoolView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def delete(self, request, school_id):
+        try:
+            school = School.objects.get(id=school_id)
+        except School.DoesNotExist:
+            return response_builder(
+                success=False,
+                message="School not found",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        user = school.user
+
+        school.delete()
+        user.delete() 
+
+        return response_builder(
+            success=True,
+            message="School deleted successfully",
+            data=None,
+            status_code=status.HTTP_200_OK
+        )

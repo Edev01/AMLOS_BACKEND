@@ -76,3 +76,19 @@ class ValidatePlanSerializer(serializers.Serializer):
     end_date = serializers.DateField()
     min_study_time_daily = serializers.IntegerField(default=120)
     max_study_time_daily = serializers.IntegerField(default=300)
+
+
+class StudyPlanHistorySerializer(serializers.ModelSerializer):
+    scheduled_slos = StudyPlanSLOSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = StudyPlan
+        fields = [
+            'id',
+            'title',
+            'status',
+            'start_date',
+            'end_date',
+            'created_at',
+            'scheduled_slos',   
+        ]

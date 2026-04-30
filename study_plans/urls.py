@@ -1,3 +1,4 @@
+from unicodedata import name
 from django.urls import path
 from .views import (
     CreateStudyPlanView, 
@@ -7,7 +8,8 @@ from .views import (
     MarkSLOCompleteView,
     CompleteStudyPlanView,
     GetActivePlanView,
-    RecommendedPlansView
+    RecommendedPlansView,
+    GetPlanHistory
 )
 
 urlpatterns = [
@@ -42,4 +44,7 @@ urlpatterns = [
     # USAGE: Mark a specific SLO as finished for progress tracking
     # ROLE: STUDENT ONLY
     path('slo/<int:plan_slo_id>/complete', MarkSLOCompleteView.as_view(), name='mark-slo-complete'),
+    
+
+    path('history', GetPlanHistory.as_view(), name = 'plan-history')
 ]

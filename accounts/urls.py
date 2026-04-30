@@ -11,4 +11,6 @@ urlpatterns = [
     path('create-teacher', CreateTeacherView.as_view()),
     path('schools', GetAllSchoolsView.as_view()),
     path('schools/<int:school_id>/students', GetSchoolStudentsView.as_view()),
+    path('schools/<int:school_id>/update', UpdateSchoolView.as_view()),
+    path('schools/<int:school_id>/delete', DeleteSchoolView.as_view()),
 ]

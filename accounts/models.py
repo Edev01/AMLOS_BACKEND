@@ -61,6 +61,7 @@ class School(models.Model):
     website = models.URLField(blank=True)
 
     established_year = models.IntegerField(null=True, blank=True)
+    principal_name = models.CharField(max_length=255,null =True)
 
     class Meta:
         db_table = "schools"
