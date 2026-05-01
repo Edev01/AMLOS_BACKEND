@@ -89,6 +89,7 @@ class StudyPlanHistorySerializer(serializers.ModelSerializer):
             'status',
             'start_date',
             'end_date',
+            'plan_type',
             'created_at',
             'scheduled_slos',   
         ]
