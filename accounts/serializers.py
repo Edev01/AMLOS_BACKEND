@@ -2,7 +2,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from accounts.models import User, School , Student
+from accounts.models import User, School, Student, Teacher
 from django.db import transaction
 # Admin signup serializer.
 from rest_framework import serializers
@@ -130,12 +130,17 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             'username',
             'password',
             'email',
+            'enrollment_date',
+            'state',
             'first_name', 
-            'last_name',   
+            'last_name', 
             'roll_number',
             'grade',
+            'section',
             'date_of_birth',
-            'gpa'
+            'guardian_phone',
+            'guardian_name',
+            'guardian_email'
         ]
 
     def create(self, validated_data):
@@ -194,10 +199,17 @@ class CreateStudentSerializer(serializers.ModelSerializer):
         return instance
 
 class SchoolSerializer(serializers.ModelSerializer):
+    teachers = serializers.SerializerMethodField()
+
     class Meta:
         model = School
         fields = '__all__'
         read_only_fields = ('user',)
+        
+    def get_teachers(self, obj):
+        from .serializers import TeacherSerializer
+        teachers = obj.teachers.all()
+        return TeacherSerializer(teachers, many=True).data
 
 class StudentSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
@@ -213,11 +225,110 @@ class StudentSerializer(serializers.ModelSerializer):
             'email', 
             'roll_number', 
             'grade', 
+            'section',
+            'state',
             'date_of_birth', 
-            'gpa', 
-            'enrollment_date'
-        ]    
+            'enrollment_date',
+            'guardian_name',
+            'guardian_phone',
+            'guardian_email'
+        ]
 
+
+class CreateTeacherSerializer(serializers.ModelSerializer):
+    username = serializers.CharField(write_only=True)
+    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(write_only=True)
+    first_name = serializers.CharField(write_only=True, required=False)
+    last_name = serializers.CharField(write_only=True, required=False)
+
+    class Meta:
+        model = Teacher
+        fields = [
+            'username',
+            'password',
+            'email',
+            'first_name',
+            'last_name',
+            'subject',
+            'qualification',
+            'experience_years',
+            'salary',
+            'hire_date'
+        ]
+
+    def create(self, validated_data):
+        request = self.context.get('request')
+        school = request.user.school_profile
+
+        username = validated_data.pop('username')
+        password = validated_data.pop('password')
+        email = validated_data.pop('email')
+        first_name = validated_data.pop('first_name', '')
+        last_name = validated_data.pop('last_name', '')
+
+        user = User.objects.create_user(
+            username=email,
+            email=email,
+            password=password,
+            role=User.Role.TEACHER,
+            first_name=first_name,
+            last_name=last_name,
+            created_by=request.user
+        )
+
+        teacher = Teacher.objects.create(
+            user=user,
+            school=school,
+            **validated_data
+        )
+
+        return teacher
+
+    def update(self, instance, validated_data):
+        user = instance.user
+        first_name = validated_data.pop('first_name', None)
+        last_name = validated_data.pop('last_name', None)
+        email = validated_data.pop('email', None)
+        password = validated_data.pop('password', None)
+
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if email is not None:
+            user.email = email
+            user.username = email
+        if password is not None:
+            user.set_password(password)
+
+        user.save()
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+
+        instance.save()
+        return instance
+
+
+class TeacherSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
+    email = serializers.EmailField(source='user.email', read_only=True)
+
+    class Meta:
+        model = Teacher
+        fields = [
+            'id', 
+            'first_name', 
+            'last_name', 
+            'email', 
+            'subject', 
+            'qualification', 
+            'experience_years', 
+            'salary', 
+            'hire_date'
+        ]
 
 class UpdateSchoolSerializer(serializers.ModelSerializer):
     class Meta:

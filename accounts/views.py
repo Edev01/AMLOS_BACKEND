@@ -140,19 +140,108 @@ class CreateSchoolView(APIView):
             status_code=status.HTTP_400_BAD_REQUEST
         )
 class CreateTeacherView(APIView):
-    permission_classes = [IsRole]
-    allowed_roles = [ 'SCHOOL']
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
 
     def post(self, request):
-        data = request.data
+        serializer = CreateTeacherSerializer(
+            data=request.data,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            teacher = serializer.save()
 
-        user = User.objects.create_user(
-            username=data['username'],
-            password=data['password'],
-            role='TEACHER'
+            data = {
+                "teacher": {
+                    "id": teacher.id,
+                    "username": teacher.user.username,
+                    "email": teacher.user.email,
+                    "subject": teacher.subject,
+                    "school": teacher.school.school_name
+                }
+            }
+
+            return response_builder(
+                success=True,
+                message="Teacher created successfully",
+                data=data,
+                status_code=status.HTTP_201_CREATED
+            )
+
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            data=None,
+            status_code=status.HTTP_400_BAD_REQUEST
         )
 
-        return Response({"message": "Teacher created"})
+class UpdateTeacherView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def patch(self, request, teacher_id):
+        school = request.user.school_profile
+        teacher = get_object_or_404(Teacher, id=teacher_id, school=school)
+
+        serializer = CreateTeacherSerializer(
+            teacher,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+
+        if serializer.is_valid():
+            updated_teacher = serializer.save()
+
+            return response_builder(
+                success=True,
+                message="Teacher updated successfully",
+                data={"teacher_id": updated_teacher.id},
+                status_code=status.HTTP_200_OK
+            )
+
+        return response_builder(
+            success=False,
+            message=serializer.errors,
+            data=None,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+class DeleteTeacherView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def delete(self, request, teacher_id):
+        school = request.user.school_profile
+        teacher = get_object_or_404(Teacher, id=teacher_id, school=school)
+        
+        teacher.user.delete()
+        
+        return response_builder(
+            success=True,
+            message="Teacher deleted successfully",
+            data=None,
+            status_code=status.HTTP_200_OK
+        )
+
+class GetAllTeachersView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN', 'SCHOOL']
+
+    def get(self, request):
+        if request.user.role == 'SCHOOL':
+            teachers = Teacher.objects.filter(school=request.user.school_profile)
+        else:
+            teachers = Teacher.objects.all()
+            
+        serializer = TeacherSerializer(teachers, many=True)
+        return response_builder(
+            success=True,
+            message="Teachers fetched successfully",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
     
 
 class CreateStudentView(APIView):
@@ -186,7 +275,6 @@ class CreateStudentView(APIView):
                     "email": student.user.email,
                     "roll_number": student.roll_number,
                     "grade": student.grade,
-                    "gpa": student.gpa,
                     "school": student.school.school_name
                 }
             }

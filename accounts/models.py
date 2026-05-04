@@ -85,11 +85,16 @@ class Student(models.Model):
 
     roll_number = models.CharField(max_length=50, unique=True)
     grade = models.CharField(max_length=20)
+    section = models.CharField(max_length=20, null=True, blank=True)
+    state = models.CharField(max_length=100, null=True, blank=True)
 
     date_of_birth = models.DateField(null=True, blank=True)
-    gpa = models.FloatField(null=True, blank=True)
 
     enrollment_date = models.DateField(auto_now_add=True)
+    
+    guardian_name = models.CharField(max_length=255, null=True, blank=True)
+    guardian_phone = models.CharField(max_length=15, null=True, blank=True)
+    guardian_email = models.EmailField(null=True, blank=True)
 
     class Meta:
         db_table = "students"
