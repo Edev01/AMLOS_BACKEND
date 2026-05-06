@@ -1,0 +1,414 @@
+{
+	"info": {
+		"_postman_id": "amlos-backend-full-v2",
+		"name": "AMLOS Backend — Full Collection",
+		"description": "Complete API collection for the AMLOS Django (DRF) backend. Covers Auth, School Management, Teacher Management, Student Management, Curriculum, and Study Plans.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "baseUrl", "value": "http://localhost:8000", "description": "Django dev server. Change to your production URL." },
+		{ "key": "adminToken", "value": "PASTE_ADMIN_JWT_HERE", "description": "Access token from ADMIN login" },
+		{ "key": "schoolToken", "value": "PASTE_SCHOOL_JWT_HERE", "description": "Access token from SCHOOL login" },
+		{ "key": "studentToken", "value": "PASTE_STUDENT_JWT_HERE", "description": "Access token from STUDENT login" },
+		{ "key": "schoolId", "value": "1" },
+		{ "key": "studentId", "value": "1" },
+		{ "key": "teacherId", "value": "1" },
+		{ "key": "planId", "value": "1" },
+		{ "key": "planSloId", "value": "1" },
+		{ "key": "subjectIds", "value": "1,2" }
+	],
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{
+					"name": "Admin Signup",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin_user\",\n  \"email\": \"admin@amlos.com\",\n  \"password\": \"Admin@12345\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/admin/signup", "host": ["{{baseUrl}}"], "path": ["api","auth","admin","signup"] },
+						"description": "Public endpoint. Creates an ADMIN user and returns tokens."
+					},
+					"response": []
+				},
+				{
+					"name": "Login (Any Role)",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var res = pm.response.json();",
+									"if (res.data && res.data.tokens) {",
+									"  pm.collectionVariables.set('adminToken', res.data.tokens.access);",
+									"  console.log('Access token saved. Update the correct role variable manually.');",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"admin_user\",\n  \"password\": \"Admin@12345\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api","auth","login"] },
+						"description": "Login with username + password. Returns `access` and `refresh` JWT tokens. The test script auto-saves the access token to `adminToken` — update to the right variable based on your role."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "2. School Management (Admin)",
+			"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+			"item": [
+				{
+					"name": "Create School",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"beaconhouse_school\",\n  \"email\": \"beaconhouse@school.com\",\n  \"password\": \"School@123\",\n  \"school_name\": \"Beaconhouse School System\",\n  \"registration_number\": \"REG-2024-001\",\n  \"address\": \"DHA Phase 5, Lahore\",\n  \"website\": \"https://beaconhouse.edu.pk\",\n  \"established_year\": 1975,\n  \"principal_name\": \"Dr. Fatima Malik\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/school/create", "host": ["{{baseUrl}}"], "path": ["api","auth","school","create"] },
+						"description": "Creates a school and its linked user account. ADMIN role required."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Schools",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/schools", "host": ["{{baseUrl}}"], "path": ["api","auth","schools"] },
+						"description": "Returns all registered schools. ADMIN only."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Students Of a School",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/schools/{{schoolId}}/students", "host": ["{{baseUrl}}"], "path": ["api","auth","schools","{{schoolId}}","students"] },
+						"description": "Returns all students enrolled in the specified school. ADMIN only."
+					},
+					"response": []
+				},
+				{
+					"name": "Update School",
+					"request": {
+						"method": "PATCH",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"principal_name\": \"Mr. Shahzad Ahmed\",\n  \"website\": \"https://beaconhouse-updated.edu.pk\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/schools/{{schoolId}}/update", "host": ["{{baseUrl}}"], "path": ["api","auth","schools","{{schoolId}}","update"] },
+						"description": "Partial update for a school. ADMIN only. Send only the fields you want to change."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete School",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/schools/{{schoolId}}/delete", "host": ["{{baseUrl}}"], "path": ["api","auth","schools","{{schoolId}}","delete"] },
+						"description": "Permanently deletes the school and its linked user account. ADMIN only."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "3. Teacher Management (School)",
+			"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{schoolToken}}", "type": "string" }] },
+			"item": [
+				{
+					"name": "Create Teacher",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"teacher_math\",\n  \"email\": \"math.teacher@school.com\",\n  \"password\": \"Teacher@123\",\n  \"subject\": \"Mathematics\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/create-teacher", "host": ["{{baseUrl}}"], "path": ["api","auth","create-teacher"] },
+						"description": "Creates a teacher linked to the authenticated school. SCHOOL role required."
+					},
+					"response": []
+				},
+				{
+					"name": "Get All Teachers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/teachers", "host": ["{{baseUrl}}"], "path": ["api","auth","teachers"] },
+						"description": "SCHOOL: returns only that school's teachers. ADMIN: returns all teachers."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Teacher",
+					"request": {
+						"method": "PATCH",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"subject\": \"Physics\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/teachers/{{teacherId}}", "host": ["{{baseUrl}}"], "path": ["api","auth","teachers","{{teacherId}}"] },
+						"description": "Partially updates a teacher belonging to the authenticated school. SCHOOL role required."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Teacher",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/teachers/{{teacherId}}/delete", "host": ["{{baseUrl}}"], "path": ["api","auth","teachers","{{teacherId}}","delete"] },
+						"description": "Deletes a teacher and their user account. SCHOOL role required."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "4. Student Management (School)",
+			"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{schoolToken}}", "type": "string" }] },
+			"item": [
+				{
+					"name": "Create Student",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"username\": \"student_ali\",\n  \"email\": \"ali.student@school.com\",\n  \"password\": \"Student@123\",\n  \"roll_number\": \"101\",\n  \"grade\": \"9\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/students/create", "host": ["{{baseUrl}}"], "path": ["api","auth","students","create"] },
+						"description": "Creates a student linked to the authenticated school. SCHOOL role required."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Student",
+					"request": {
+						"method": "PATCH",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"grade\": \"10\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/auth/students/{{studentId}}", "host": ["{{baseUrl}}"], "path": ["api","auth","students","{{studentId}}"] },
+						"description": "Partially updates a student. SCHOOL role required (own school's students only)."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Student",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/auth/students/{{studentId}}/delete", "host": ["{{baseUrl}}"], "path": ["api","auth","students","{{studentId}}","delete"] },
+						"description": "Deletes a student and their user account. SCHOOL role required."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "5. Curriculum (Admin/School)",
+			"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+			"item": [
+				{
+					"name": "Create Subject",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Mathematics\",\n  \"grade\": \"9\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/curriculum/subjects/create", "host": ["{{baseUrl}}"], "path": ["api","curriculum","subjects","create"] }
+					},
+					"response": []
+				},
+				{
+					"name": "List All Subjects",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/curriculum/subjects", "host": ["{{baseUrl}}"], "path": ["api","curriculum","subjects"] },
+						"description": "Returns all subjects in the curriculum."
+					},
+					"response": []
+				},
+				{
+					"name": "Create Chapter",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Algebra Basics\",\n  \"subject_id\": 1,\n  \"order\": 1\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/curriculum/chapters/create", "host": ["{{baseUrl}}"], "path": ["api","curriculum","chapters","create"] }
+					},
+					"response": []
+				},
+				{
+					"name": "List Chapters By Subject IDs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/curriculum/chapters/{{subjectIds}}",
+							"host": ["{{baseUrl}}"], "path": ["api","curriculum","chapters","{{subjectIds}}"]
+						},
+						"description": "Pass comma-separated subject IDs in the URL path. e.g. `1,2,3`"
+					},
+					"response": []
+				},
+				{
+					"name": "Create SLO",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"title\": \"Understand linear equations\",\n  \"description\": \"Student can solve one-variable linear equations.\",\n  \"chapter_id\": 1,\n  \"estimated_time\": 30\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/curriculum/slos/create", "host": ["{{baseUrl}}"], "path": ["api","curriculum","slos","create"] },
+						"description": "`estimated_time` is in minutes."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "6. Study Plans (Student/Admin)",
+			"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{studentToken}}", "type": "string" }] },
+			"item": [
+				{
+					"name": "Create Study Plan (Custom)",
+					"request": {
+						"method": "POST",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"slo_ids\": [1, 2, 3, 4, 5],\n  \"mode\": \"BALANCED\",\n  \"start_date\": \"2026-05-07\",\n  \"end_date\": \"2026-05-21\",\n  \"min_study_time_daily\": 30,\n  \"max_study_time_daily\": 90,\n  \"subject_order\": [1, 2],\n  \"plan_type\": \"CUSTOM\"\n}",
+							"options": { "raw": { "language": "json" } }
+						},
+						"url": { "raw": "{{baseUrl}}/api/study-plans/create", "host": ["{{baseUrl}}"], "path": ["api","study-plans","create"] },
+						"description": "Creates a custom study plan for the authenticated student. `mode`: BALANCED | INTENSIVE | RELAXED. `plan_type`: CUSTOM | RECOMMENDED (RECOMMENDED only for ADMIN)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Active Plan (Student Dashboard)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/current", "host": ["{{baseUrl}}"], "path": ["api","study-plans","current"] },
+						"description": "Fetches the student's current active plan. Also triggers a 24h auto-recalculation and streak check."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Recommended Plans",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/recommended", "host": ["{{baseUrl}}"], "path": ["api","study-plans","recommended"] },
+						"description": "Fetches recommended plans that match the student's grade. STUDENT role."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Plan Details",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/{{planId}}", "host": ["{{baseUrl}}"], "path": ["api","study-plans","{{planId}}"] },
+						"description": "Returns full details of a specific plan. Students can only access their own plans; admins can access all."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Plan Day Schedule",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/{{planId}}/day/2026-05-07", "host": ["{{baseUrl}}"], "path": ["api","study-plans","{{planId}}","day","2026-05-07"] },
+						"description": "Returns all SLOs scheduled for a specific date in a plan. Date format: YYYY-MM-DD."
+					},
+					"response": []
+				},
+				{
+					"name": "Mark SLO as Complete",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/slo/{{planSloId}}/complete", "host": ["{{baseUrl}}"], "path": ["api","study-plans","slo","{{planSloId}}","complete"] },
+						"description": "Marks a specific PlanSLO as completed and updates the student's streak. STUDENT role only."
+					},
+					"response": []
+				},
+				{
+					"name": "Complete / Finish a Plan Early",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/{{planId}}/complete", "host": ["{{baseUrl}}"], "path": ["api","study-plans","{{planId}}","complete"] },
+						"description": "Marks an active plan as COMPLETED, allowing the student to create a new one. STUDENT or ADMIN."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Plan History",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/history", "host": ["{{baseUrl}}"], "path": ["api","study-plans","history"] },
+						"description": "Returns all completed/abandoned plans for the authenticated student, ordered by newest first. STUDENT role."
+					},
+					"response": []
+				},
+				{
+					"name": "List All Plans (Admin)",
+					"request": {
+						"auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{adminToken}}", "type": "string" }] },
+						"method": "GET",
+						"header": [],
+						"url": { "raw": "{{baseUrl}}/api/study-plans/", "host": ["{{baseUrl}}"], "path": ["api","study-plans",""] },
+						"description": "Returns all study plans in the system. ADMIN only."
+					},
+					"response": []
+				}
+			]
+		}
+	]
+}

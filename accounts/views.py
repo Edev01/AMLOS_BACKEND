@@ -295,7 +295,22 @@ class CreateStudentView(APIView):
             data=None,
             status_code=status.HTTP_400_BAD_REQUEST
         )
-    
+
+class GetAllStudentsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = [ 'SCHOOL']
+
+    def get(self, request):
+        school = request.user.school_profile
+        students = Student.objects.filter(school=school)
+        serializer = StudentSerializer(students, many=True)
+        return response_builder(
+            success=True,
+            message="Students fetched successfully",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
 class UpdateStudentView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['SCHOOL']

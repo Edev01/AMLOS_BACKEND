@@ -200,6 +200,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
 
 class SchoolSerializer(serializers.ModelSerializer):
     teachers = serializers.SerializerMethodField()
+    email = serializers.EmailField(source='user.email', read_only=True)
 
     class Meta:
         model = School

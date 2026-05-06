@@ -53,9 +53,19 @@ class CreateStudyPlanSerializer(serializers.ModelSerializer):
         return StudyPlan.objects.create(**model_data)
 
 class StudyPlanSerializer(serializers.ModelSerializer):
+    subjects = serializers.SerializerMethodField()
+
     class Meta:
         model = StudyPlan
         fields = '__all__'
+
+    def get_subjects(self, obj):
+        return list(
+            obj.scheduled_slos
+            .order_by('subject_name')
+            .values_list('subject_name', flat=True)
+            .distinct()
+        )
 
 class StudyPlanDetailSerializer(serializers.ModelSerializer):
     scheduled_slos = StudyPlanSLOSerializer(many=True, read_only=True)
