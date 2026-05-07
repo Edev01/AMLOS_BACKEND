@@ -40,11 +40,12 @@ class CreateStudyPlanView(APIView):
                         status_code=status.HTTP_400_BAD_REQUEST
                     )
             # Check if user already has an active plan
-            if StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists():
-                return response_builder(
-                    success=False,
-                    message="You already have an active study plan. Please finish it before creating a new one.",
-                    status_code=status.HTTP_400_BAD_REQUEST
+            if user.role == 'STUDENT':
+                if StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists():
+                    return response_builder(
+                        success=False,
+                        message="You already have an active study plan. Please finish it before creating a new one.",
+                        status_code=status.HTTP_400_BAD_REQUEST
                 )
 
             plan_type = serializer.validated_data.get('plan_type')
