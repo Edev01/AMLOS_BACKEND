@@ -9,7 +9,8 @@ from .views import (
     CompleteStudyPlanView,
     GetActivePlanView,
     RecommendedPlansView,
-    GetPlanHistory
+    GetPlanHistory,
+    SelectRecommendedPlanView
 )
 
 urlpatterns = [
@@ -46,5 +47,9 @@ urlpatterns = [
     path('slo/<int:plan_slo_id>/complete', MarkSLOCompleteView.as_view(), name='mark-slo-complete'),
     
 
-    path('history', GetPlanHistory.as_view(), name = 'plan-history')
+    path('history', GetPlanHistory.as_view(), name = 'plan-history'),
+    
+    # USAGE: Select a recommended plan to make it the student's active plan
+    # ROLE: STUDENT
+    path('recommended/<int:plan_id>/select', SelectRecommendedPlanView.as_view(), name='select-recommended-plan'),
 ]

@@ -29,8 +29,9 @@ class CreateStudyPlanView(APIView):
         data = request.data
         serializer = CreateStudyPlanSerializer(data=data)
         if serializer.is_valid():
+            # grade check logic changed, but i'm letting it same for both, free will :)
             if user.role == 'STUDENT':
-                data['grade'] = user.get_profile().grade
+                data['grade'] = data.get('grade')
             elif user.role == 'ADMIN':
                 data['grade'] = data.get('grade')
                 if not data['grade']:
@@ -118,8 +119,10 @@ class RecommendedPlansView(APIView):
 
     def get(self, request):
         # Students see Recommended plans matching their grade
-        profile = request.user.get_get_profile() if hasattr(request.user, 'get_get_profile') else None
+        profile = request.user.get_profile() if hasattr(request.user, 'get_profile') else None
+        print("request.user.get_get_profile():", request.user.get_profile())
         grade = profile.grade if profile and hasattr(profile, 'grade') else ""
+        print("grade:", grade)
         
         plans = StudyPlan.objects.filter(
             plan_type=StudyPlan.PlanType.RECOMMENDED, 
@@ -287,4 +290,70 @@ class GetPlanHistory(APIView):
             success=True,
             message="Study plan history fetched with SLOs.",
             data=serializer.data
+        )
+
+class SelectRecommendedPlanView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['STUDENT']
+
+    def post(self, request, plan_id):
+        user = request.user
+        
+        # Check if student already has an active plan
+        if StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists():
+            return response_builder(
+                success=False,
+                message="You already have an active study plan. Please finish it before selecting a new one.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get the recommended plan template
+        template_plan = get_object_or_404(StudyPlan, id=plan_id, plan_type=StudyPlan.PlanType.RECOMMENDED)
+
+        # Clone the plan for the student
+        # Note: We set plan_type to CUSTOM or RECOMMENDED depending on how you want to track it.
+        # Keeping it as RECOMMENDED but owned by the student helps distinguish it.
+        new_plan = StudyPlan.objects.create(
+            user=user,
+            plan_type=StudyPlan.PlanType.RECOMMENDED, 
+            grade=template_plan.grade,
+            title=f"{template_plan.title} (Selected)",
+            mode=template_plan.mode,
+            start_date=template_plan.start_date,
+            end_date=template_plan.end_date,
+            min_study_time_daily=template_plan.min_study_time_daily,
+            max_study_time_daily=template_plan.max_study_time_daily,
+            custom_pattern=template_plan.custom_pattern,
+            subject_order=template_plan.subject_order,
+            total_slo_time=template_plan.total_slo_time,
+            total_available_time=template_plan.total_available_time,
+            status=StudyPlan.Status.ACTIVE,
+            last_recalculated_at=timezone.now().date()
+        )
+
+        # Clone the scheduled SLOs (the actual schedule/timeline)
+        template_slos = template_plan.scheduled_slos.all()
+        new_slos = []
+        for t_slo in template_slos:
+            new_slos.append(StudyPlanSLO(
+                plan=new_plan,
+                slo=t_slo.slo,
+                scheduled_date=t_slo.scheduled_date,
+                order_in_day=t_slo.order_in_day,
+                subject_name=t_slo.subject_name,
+                chapter_name=t_slo.chapter_name,
+                estimated_time=t_slo.estimated_time,
+                is_completed=False
+            ))
+        
+        if new_slos:
+            StudyPlanSLO.objects.bulk_create(new_slos)
+
+        # Return the same schema as a custom plan using DetailSerializer
+        serializer = StudyPlanDetailSerializer(new_plan)
+        return response_builder(
+            success=True,
+            message="Recommended plan has been activated for you.",
+            data=serializer.data,
+            status_code=status.HTTP_201_CREATED
         )
