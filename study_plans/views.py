@@ -16,7 +16,6 @@ from .serializers import (
 from .engine import StudyPlanEngine
 from django.db import models
 from django.db.models import Prefetch
-
 from django.utils import timezone
 from datetime import timedelta
 
@@ -108,10 +107,15 @@ class ListStudyPlansView(APIView):
     allowed_roles = ['ADMIN'] # Admin only now
 
     def get(self, request):
-        # Admins see all plans created by them or all recommended plans
-        plans = StudyPlan.objects.all()
-        serializer = StudyPlanSerializer(plans, many=True)
-        return response_builder(success=True, message="All plans fetched (Admin).", data=serializer.data)
+        # Admins see only recommended plans
+        plans = StudyPlan.objects.filter(plan_type=StudyPlan.PlanType.RECOMMENDED).prefetch_related(
+            Prefetch(
+                'scheduled_slos',
+                queryset=StudyPlanSLO.objects.select_related('slo')
+            )
+        )
+        serializer = StudyPlanDetailSerializer(plans, many=True)
+        return response_builder(success=True, message="Recommended plans fetched (Admin).", data=serializer.data)
 
 class RecommendedPlansView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
@@ -127,10 +131,15 @@ class RecommendedPlansView(APIView):
         plans = StudyPlan.objects.filter(
             plan_type=StudyPlan.PlanType.RECOMMENDED, 
             grade=grade
+        ).prefetch_related(
+            Prefetch(
+                'scheduled_slos',
+                queryset=StudyPlanSLO.objects.select_related('slo')
+            )
         )
         
-        serializer = StudyPlanSerializer(plans, many=True)
-        return response_builder(success=True, message="Recommended plans fetched.", data=serializer.data)
+        serializer = StudyPlanDetailSerializer(plans, many=True)
+        return response_builder(success=True, message="Recommended plans fetched with full details.", data=serializer.data)
 
 class GetActivePlanView(APIView):
     permission_classes = [IsAuthenticated, IsRole]

@@ -69,6 +69,7 @@ class StudyPlanSerializer(serializers.ModelSerializer):
 
 class StudyPlanDetailSerializer(serializers.ModelSerializer):
     scheduled_slos = StudyPlanSLOSerializer(many=True, read_only=True)
+    subjects = serializers.SerializerMethodField()
     
     class Meta:
         model = StudyPlan
@@ -76,9 +77,17 @@ class StudyPlanDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'plan_type', 'grade', 'mode', 'start_date', 'end_date',
             'min_study_time_daily', 'max_study_time_daily', 'is_completable',
             'total_slo_time', 'total_available_time', 
-            'current_streak', 
+            'current_streak', 'subjects',
             'status', 'created_at', 'scheduled_slos'
         ]
+
+    def get_subjects(self, obj):
+        return list(
+            obj.scheduled_slos
+            .order_by('subject_name')
+            .values_list('subject_name', flat=True)
+            .distinct()
+        )
 
 class ValidatePlanSerializer(serializers.Serializer):
     slo_ids = serializers.ListField(child=serializers.IntegerField())
