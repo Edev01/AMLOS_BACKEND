@@ -1,9 +1,12 @@
+import logging
 from datetime import timedelta, date
 from django.db.models import Sum
 from curriculum.models import SLO
 from .models import StudyPlan, StudyPlanSLO
 from rest_framework.exceptions import ValidationError
 from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 class StudyPlanEngine:
     def __init__(self, plan_data):
@@ -43,9 +46,9 @@ class StudyPlanEngine:
     def validate_load(self, total_slo_time, max_available_time, total_days):
         if total_slo_time > max_available_time:
             required_daily = total_slo_time / total_days
-            raise ValidationError(
-                f"Your plan requires {required_daily/60:.2f} hours/day but your limit is {self.max_study_time_daily/60:.1f} hours"
-            )
+            error_msg = f"Your plan requires {required_daily/60:.2f} hours/day but your limit is {self.max_study_time_daily/60:.1f} hours"
+            logger.warning(f"StudyPlanEngine: Validation failed. {error_msg}")
+            raise ValidationError(error_msg)
 
     def group_slos_by_phases(self, slos):
         """
@@ -141,7 +144,10 @@ class StudyPlanEngine:
         total_time = sum(s.estimated_time for s in current_slos)
         _, max_available, total_days = self.calculate_available_time(target_start, self.end_date)
         
+        logger.info(f"StudyPlanEngine: Starting generate_schedule. SLO count: {len(current_slos)}, total_time: {total_time}, total_days: {total_days}")
+        
         if total_days <= 0:
+            logger.warning(f"StudyPlanEngine: total_days={total_days} (invalid window). Marking plan as non-completable.")
             study_plan.is_completable = False
             study_plan.save()
             return 0
@@ -212,6 +218,7 @@ class StudyPlanEngine:
         study_plan.total_available_time = max_available
         study_plan.save()
         
+        logger.info(f"StudyPlanEngine: generate_schedule complete. is_completable={study_plan.is_completable}, count={len(schedule_entries)}")
         return len(schedule_entries)
 
     def _distribute_into_window(self, plan, slos, start_date, end_date):

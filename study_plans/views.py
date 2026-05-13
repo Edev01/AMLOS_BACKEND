@@ -1,3 +1,4 @@
+import logging
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -18,6 +19,8 @@ from django.db import models
 from django.db.models import Prefetch
 from django.utils import timezone
 from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 
 class CreateStudyPlanView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
@@ -307,34 +310,48 @@ class UpdateStudyPlanView(APIView):
 
     def post(self, request, plan_id):
         user = request.user
+        logger.info(f"UpdateStudyPlanView: Received update request for plan_id={plan_id} from user={user.email}")
+        
         plan = get_object_or_404(StudyPlan, id=plan_id)
         
         # Verify ownership and plan type
         if user.role != 'ADMIN' and plan.user != user:
+            logger.warning(f"UpdateStudyPlanView: Access denied for user={user.email} on plan_id={plan_id}")
             return response_builder(success=False, message="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
         
         if plan.plan_type != StudyPlan.PlanType.CUSTOM:
+             logger.warning(f"UpdateStudyPlanView: Attempt to edit non-custom plan_id={plan_id} (type={plan.plan_type})")
              return response_builder(success=False, message="Only custom plans can be edited.", status_code=status.HTTP_400_BAD_REQUEST)
 
         serializer = CreateStudyPlanSerializer(plan, data=request.data, partial=True)
         if serializer.is_valid():
+            logger.info(f"UpdateStudyPlanView: Serializer is valid for plan_id={plan_id}")
             # Save metadata updates
             plan = serializer.save()
             
             new_slo_ids = serializer.validated_data.get('slo_ids', [])
+            logger.debug(f"UpdateStudyPlanView: New SLO IDs: {new_slo_ids}")
             
             # Recalculation logic:
             # 1. Identify currently completed SLOs
             completed_slos_query = StudyPlanSLO.objects.filter(plan=plan, is_completed=True)
             completed_slo_ids = list(completed_slos_query.values_list('slo_id', flat=True))
+            logger.debug(f"UpdateStudyPlanView: Completed SLO IDs: {completed_slo_ids}")
             
             # 2. Handle removals: If a completed SLO is no longer in new_slo_ids, delete it
-            completed_slos_query.exclude(slo_id__in=new_slo_ids).delete()
+            to_delete_completed = completed_slos_query.exclude(slo_id__in=new_slo_ids)
+            delete_count = to_delete_completed.count()
+            if delete_count > 0:
+                logger.info(f"UpdateStudyPlanView: Deleting {delete_count} previously completed SLOs that are no longer in the plan.")
+                to_delete_completed.delete()
             
             # 3. Determine which SLOs to schedule (those in new_slo_ids but not already completed)
             to_schedule_ids = [sid for sid in new_slo_ids if sid not in completed_slo_ids]
+            logger.info(f"UpdateStudyPlanView: SLOs to schedule: {len(to_schedule_ids)}")
             
             # 4. Clear all incomplete SLOs
+            incomplete_count = StudyPlanSLO.objects.filter(plan=plan, is_completed=False).count()
+            logger.info(f"UpdateStudyPlanView: Clearing {incomplete_count} incomplete SLOs.")
             StudyPlanSLO.objects.filter(plan=plan, is_completed=False).delete()
             
             # 5. Fetch SLO models for scheduling
@@ -345,6 +362,7 @@ class UpdateStudyPlanView(APIView):
             # If plan hasn't started yet, schedule from start_date
             # Otherwise, schedule from today
             calc_start_date = max(plan.start_date, today)
+            logger.info(f"UpdateStudyPlanView: Recalculating from date={calc_start_date}")
             
             engine = StudyPlanEngine(serializer.validated_data)
             try:
@@ -354,6 +372,7 @@ class UpdateStudyPlanView(APIView):
                 plan.last_recalculated_at = today
                 plan.save()
                 
+                logger.info(f"UpdateStudyPlanView: Successfully updated plan_id={plan_id}. {count} SLOs scheduled.")
                 return response_builder(
                     success=True,
                     message=f"Study plan updated and recalculated. {count} SLOs scheduled.",
@@ -361,12 +380,14 @@ class UpdateStudyPlanView(APIView):
                     status_code=status.HTTP_200_OK
                 )
             except Exception as e:
-                 return response_builder(
+                logger.exception(f"UpdateStudyPlanView: Recalculation failed for plan_id={plan_id}")
+                return response_builder(
                     success=False,
                     message=f"Recalculation failed: {str(e)}",
                     status_code=status.HTTP_400_BAD_REQUEST
                 )
         
+        logger.error(f"UpdateStudyPlanView: Validation failed for plan_id={plan_id}. Errors: {serializer.errors}")
         errors = " ".join([str(err[0]) for err in serializer.errors.values()])
         return response_builder(
             success=False,
