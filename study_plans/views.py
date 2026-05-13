@@ -301,6 +301,79 @@ class GetPlanHistory(APIView):
             data=serializer.data
         )
 
+class UpdateStudyPlanView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['STUDENT', 'ADMIN']
+
+    def post(self, request, plan_id):
+        user = request.user
+        plan = get_object_or_404(StudyPlan, id=plan_id)
+        
+        # Verify ownership and plan type
+        if user.role != 'ADMIN' and plan.user != user:
+            return response_builder(success=False, message="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
+        
+        if plan.plan_type != StudyPlan.PlanType.CUSTOM:
+             return response_builder(success=False, message="Only custom plans can be edited.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        serializer = CreateStudyPlanSerializer(plan, data=request.data, partial=True)
+        if serializer.is_valid():
+            # Save metadata updates
+            plan = serializer.save()
+            
+            new_slo_ids = serializer.validated_data.get('slo_ids', [])
+            
+            # Recalculation logic:
+            # 1. Identify currently completed SLOs
+            completed_slos_query = StudyPlanSLO.objects.filter(plan=plan, is_completed=True)
+            completed_slo_ids = list(completed_slos_query.values_list('slo_id', flat=True))
+            
+            # 2. Handle removals: If a completed SLO is no longer in new_slo_ids, delete it
+            completed_slos_query.exclude(slo_id__in=new_slo_ids).delete()
+            
+            # 3. Determine which SLOs to schedule (those in new_slo_ids but not already completed)
+            to_schedule_ids = [sid for sid in new_slo_ids if sid not in completed_slo_ids]
+            
+            # 4. Clear all incomplete SLOs
+            StudyPlanSLO.objects.filter(plan=plan, is_completed=False).delete()
+            
+            # 5. Fetch SLO models for scheduling
+            to_schedule_slos = list(SLO.objects.filter(id__in=to_schedule_ids).select_related('chapter', 'chapter__subject'))
+            
+            # 6. Re-run distribution
+            today = timezone.now().date()
+            # If plan hasn't started yet, schedule from start_date
+            # Otherwise, schedule from today
+            calc_start_date = max(plan.start_date, today)
+            
+            engine = StudyPlanEngine(serializer.validated_data)
+            try:
+                count = engine.generate_schedule(plan, slos=to_schedule_slos, start_date=calc_start_date)
+                
+                # Update last_recalculated_at
+                plan.last_recalculated_at = today
+                plan.save()
+                
+                return response_builder(
+                    success=True,
+                    message=f"Study plan updated and recalculated. {count} SLOs scheduled.",
+                    data=StudyPlanSerializer(plan).data,
+                    status_code=status.HTTP_200_OK
+                )
+            except Exception as e:
+                 return response_builder(
+                    success=False,
+                    message=f"Recalculation failed: {str(e)}",
+                    status_code=status.HTTP_400_BAD_REQUEST
+                )
+        
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
 class SelectRecommendedPlanView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['STUDENT']

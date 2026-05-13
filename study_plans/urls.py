@@ -10,7 +10,8 @@ from .views import (
     GetActivePlanView,
     RecommendedPlansView,
     GetPlanHistory,
-    SelectRecommendedPlanView
+    SelectRecommendedPlanView,
+    UpdateStudyPlanView
 )
 
 urlpatterns = [
@@ -33,6 +34,10 @@ urlpatterns = [
     # USAGE: View full details of a specific plan by ID
     # ROLE: STUDENT (Owner), ADMIN
     path('<int:plan_id>', StudyPlanDetailView.as_view(), name='study-plan-detail'),
+
+    # USAGE: Update and recalculate a specific plan
+    # ROLE: STUDENT (Owner), ADMIN
+    path('<int:plan_id>/update', UpdateStudyPlanView.as_view(), name='update-study-plan'),
 
     # USAGE: Fetch a specific day's scheduled SLOs for a plan
     # ROLE: STUDENT, ADMIN
