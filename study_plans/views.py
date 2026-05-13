@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from utils.response_builder import response_builder
 from accounts.permissions import IsRole
 from .models import StudyPlan, StudyPlanSLO
+from curriculum.models import SLO
 from .serializers import (
     CreateStudyPlanSerializer, 
     StudyPlanSerializer, 
