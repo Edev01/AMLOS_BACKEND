@@ -315,14 +315,18 @@ class UpdateStudyPlanView(APIView):
         
         plan = get_object_or_404(StudyPlan, id=plan_id)
         
-        # Verify ownership and plan type
-        if user.role != 'ADMIN' and plan.user != user:
-            logger.warning(f"UpdateStudyPlanView: Access denied for user={user.email} on plan_id={plan_id}")
-            return response_builder(success=False, message="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
-        
-        if plan.plan_type != StudyPlan.PlanType.CUSTOM:
-             logger.warning(f"UpdateStudyPlanView: Attempt to edit non-custom plan_id={plan_id} (type={plan.plan_type})")
-             return response_builder(success=False, message="Only custom plans can be edited.", status_code=status.HTTP_400_BAD_REQUEST)
+        # Role-based restriction: Admins edit RECOMMENDED, Students edit CUSTOM (their own)
+        if user.role == 'ADMIN':
+            if plan.plan_type != StudyPlan.PlanType.RECOMMENDED:
+                logger.warning(f"UpdateStudyPlanView: Admin attempted to edit non-recommended plan_id={plan_id}")
+                return response_builder(success=False, message="Admins can only edit recommended plans.", status_code=status.HTTP_400_BAD_REQUEST)
+        elif user.role == 'STUDENT':
+            if plan.user != user:
+                logger.warning(f"UpdateStudyPlanView: Access denied for user={user.email} on plan_id={plan_id}")
+                return response_builder(success=False, message="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
+            if plan.plan_type != StudyPlan.PlanType.CUSTOM:
+                logger.warning(f"UpdateStudyPlanView: Attempt to edit non-custom plan_id={plan_id}")
+                return response_builder(success=False, message="Students can only edit custom plans.", status_code=status.HTTP_400_BAD_REQUEST)
 
         serializer = CreateStudyPlanSerializer(plan, data=request.data, partial=True)
         if serializer.is_valid():
@@ -394,6 +398,35 @@ class UpdateStudyPlanView(APIView):
             success=False,
             message=errors,
             status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+class DeleteStudyPlanView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def delete(self, request, plan_id):
+        user = request.user
+        logger.info(f"DeleteStudyPlanView: Received delete request for plan_id={plan_id} from user={user.email}")
+        
+        plan = get_object_or_404(StudyPlan, id=plan_id)
+        
+        # Only recommended plans can be deleted by admin here
+        if plan.plan_type != StudyPlan.PlanType.RECOMMENDED:
+            logger.warning(f"DeleteStudyPlanView: Admin attempted to delete non-recommended plan_id={plan_id}")
+            return response_builder(
+                success=False, 
+                message="Admins can only delete recommended plans.", 
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+            
+        plan_title = plan.title
+        plan.delete()
+        
+        logger.info(f"DeleteStudyPlanView: Successfully deleted recommended plan_id={plan_id} ({plan_title})")
+        return response_builder(
+            success=True,
+            message=f"Recommended plan '{plan_title}' has been deleted.",
+            status_code=status.HTTP_200_OK
         )
 
 class SelectRecommendedPlanView(APIView):

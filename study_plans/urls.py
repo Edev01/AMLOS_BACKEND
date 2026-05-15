@@ -11,7 +11,8 @@ from .views import (
     RecommendedPlansView,
     GetPlanHistory,
     SelectRecommendedPlanView,
-    UpdateStudyPlanView
+    UpdateStudyPlanView,
+    DeleteStudyPlanView
 )
 
 urlpatterns = [
@@ -38,6 +39,10 @@ urlpatterns = [
     # USAGE: Update and recalculate a specific plan
     # ROLE: STUDENT (Owner), ADMIN
     path('<int:plan_id>/update', UpdateStudyPlanView.as_view(), name='update-study-plan'),
+    
+    # USAGE: Delete a recommended plan
+    # ROLE: ADMIN ONLY
+    path('<int:plan_id>/delete', DeleteStudyPlanView.as_view(), name='delete-study-plan'),
 
     # USAGE: Fetch a specific day's scheduled SLOs for a plan
     # ROLE: STUDENT, ADMIN
