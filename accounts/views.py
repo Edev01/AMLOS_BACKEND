@@ -466,3 +466,282 @@ class DeleteSchoolView(APIView):
             data=None,
             status_code=status.HTTP_200_OK
         )
+
+
+class RequestPasswordResetView(APIView):
+    permission_classes = []  # Public endpoint
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_encode
+        from django.utils.encoding import force_bytes
+        from django.core.mail import EmailMultiAlternatives
+
+        email = request.data.get('email', '').strip()
+        if not email:
+            return response_builder(
+                success=False,
+                message="Email address is required.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        user = User.objects.filter(email__iexact=email).first()
+        if not user:
+            return response_builder(
+                success=False,
+                message="No account found with this email address.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+
+        # Generate secure recovery credentials
+        token = default_token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        
+        # Construct the web redirection URL dynamically based on the request's origin host
+        scheme = 'https' if request.is_secure() else 'http'
+        redirect_web_url = f"{scheme}://{request.get_host()}/api/auth/password-reset/redirect?token={token}&uid={uid}"
+        
+        # Deep link format (kept for dynamic app launches & emulator copying)
+        reset_url = f"amlos://reset-password?token={token}&uid={uid}"
+
+        # Premium HTML Branded email
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Reset Your Password</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #F8F9FD; font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8F9FD; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #EAF0FA;">
+          
+          <!-- Header Banner -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #2168F6 0%, #7D39F1 100%); padding: 40px 30px; text-align: center; color: #ffffff;">
+              <h1 style="margin: 0; font-size: 28px; font-weight: 800; letter-spacing: 0.5px;">Account Recovery</h1>
+              <p style="margin: 8px 0 0 0; font-size: 14px; opacity: 0.85;">AMLOS Learning Platform</p>
+            </td>
+          </tr>
+          
+          <!-- Content Body -->
+          <tr>
+            <td style="padding: 40px 30px; color: #1D1F2A; line-height: 1.6;">
+              <!-- Brand Logo Pill -->
+              <div style="text-align: center; margin-bottom: 30px;">
+                <span style="background: linear-gradient(135deg, #2168F6 0%, #7D39F1 100%); color: white; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 24px; font-weight: 800; padding: 10px 22px; border-radius: 12px; display: inline-block; box-shadow: 0 4px 10px rgba(33, 104, 246, 0.2);">
+                  AMLOS
+                </span>
+              </div>
+              
+              <p style="font-size: 16px; margin-top: 0;">Hi <strong>{user.username}</strong>,</p>
+              <p style="font-size: 15px; color: #4A4D5C;">We received a request to reset your password for your AMLOS account. No changes have been made yet.</p>
+              <p style="font-size: 15px; color: #4A4D5C;">Please tap the button below to securely reset your password on your mobile device. This secure link is only valid for a limited time.</p>
+              
+              <!-- Action Button -->
+              <div style="text-align: center; margin: 35px 0;">
+                <a href="{redirect_web_url}" style="background: linear-gradient(135deg, #2168F6 0%, #7D39F1 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 16px; font-size: 16px; font-weight: bold; display: inline-block; box-shadow: 0 8px 20px rgba(33, 104, 246, 0.3);">
+                  Reset Password 🔑
+                </a>
+              </div>
+              
+              <p style="font-size: 13px; color: #7F8494; text-align: center; margin-bottom: 25px;">
+                If tapping the button above does not automatically launch your app, copy and paste this link in your app's test emulator:<br>
+                <strong style="color: #2168F6; word-break: break-all;">{reset_url}</strong>
+              </p>
+              
+              <hr style="border: 0; border-top: 1px solid #EAF0FA; margin: 30px 0;">
+              
+              <p style="font-size: 13px; color: #7F8494; margin-bottom: 0;">If you didn't request a password reset, you can safely ignore this email. Your password will remain completely secure.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #F8F9FD; padding: 25px 30px; text-align: center; font-size: 12px; color: #7F8494; border-top: 1px solid #EAF0FA;">
+              <p style="margin: 0;">© 2026 AMLOS Education. All rights reserved.</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; opacity: 0.7;">This is an automated notification. Please do not reply to this email.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+"""
+        text_content = f"Hi {user.username},\n\nUse the following link to reset your AMLOS password:\n{reset_url}"
+
+        # Send multi-part HTML email
+        msg = EmailMultiAlternatives(
+            subject="Reset your AMLOS Password 🔑",
+            body=text_content,
+            from_email="noreply@amlos.com",
+            to=[user.email]
+        )
+        msg.attach_alternative(html_content, "text/html")
+        msg.send()
+
+        return response_builder(
+            success=True,
+            message="Recovery link sent successfully to your email.",
+            data={
+                "uid": uid,
+                "token": token
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+
+class ConfirmPasswordResetView(APIView):
+    permission_classes = []  # Public endpoint
+
+    def post(self, request):
+        from django.contrib.auth.tokens import default_token_generator
+        from django.utils.http import urlsafe_base64_decode
+        from django.utils.encoding import force_str
+
+        uidb64 = request.data.get('uid', '')
+        token = request.data.get('token', '')
+        new_password = request.data.get('password', '')
+
+        if not uidb64 or not token or not new_password:
+            return response_builder(
+                success=False,
+                message="Missing required parameters (uid, token, or password).",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return response_builder(
+                success=False,
+                message="Invalid or expired reset token link.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not default_token_generator.check_token(user, token):
+            return response_builder(
+                success=False,
+                message="Password reset link is invalid or has expired.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+
+        return response_builder(
+            success=True,
+            message="Your password has been successfully reset! You can now log in.",
+            data=None,
+            status_code=status.HTTP_200_OK
+        )
+
+
+from django.http import HttpResponse
+
+class PasswordResetRedirectView(APIView):
+    permission_classes = []  # Public endpoint
+
+    def get(self, request):
+        token = request.GET.get('token', '')
+        uid = request.GET.get('uid', '')
+        deep_link = f"amlos://reset-password?token={token}&uid={uid}"
+        
+        html_content = f"""<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Opening AMLOS App</title>
+  <style>
+    body {{
+      margin: 0;
+      padding: 0;
+      background-color: #13141C;
+      color: #FFFFFF;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }}
+    .card {{
+      background-color: #1D1F2A;
+      padding: 40px 30px;
+      border-radius: 24px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      max-width: 400px;
+      width: 90%;
+      border: 1px solid rgba(255,255,255,0.05);
+    }}
+    .logo {{
+      background: linear-gradient(135deg, #2168F6 0%, #7D39F1 100%);
+      color: white;
+      font-weight: 800;
+      font-size: 28px;
+      padding: 12px 24px;
+      border-radius: 14px;
+      display: inline-block;
+      margin-bottom: 25px;
+      letter-spacing: 1px;
+    }}
+    h2 {{
+      margin: 0 0 10px 0;
+      font-size: 22px;
+      font-weight: 700;
+    }}
+    p {{
+      color: rgba(255,255,255,0.7);
+      font-size: 14px;
+      margin: 0 0 30px 0;
+      line-height: 1.5;
+    }}
+    .btn {{
+      background: linear-gradient(135deg, #2168F6 0%, #7D39F1 100%);
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 16px 32px;
+      border-radius: 16px;
+      display: inline-block;
+      margin-bottom: 20px;
+      box-shadow: 0 5px 15px rgba(33, 104, 246, 0.3);
+      font-size: 15px;
+    }}
+    .copy-box {{
+      background-color: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      word-break: break-all;
+      border: 1px solid rgba(255,255,255,0.1);
+      margin-top: 10px;
+      color: #2168F6;
+    }}
+  </style>
+  <script>
+    window.onload = function() {{
+      // Try to open the app automatically using the deep link scheme
+      window.location.href = "{deep_link}";
+    }};
+  </script>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">AMLOS</div>
+    <h2>Opening AMLOS App... 🚀</h2>
+    <p>We are redirecting you to your secure password reset screen. If the app does not launch automatically, tap the button below:</p>
+    <a href="{deep_link}" class="btn">Open App Directly</a>
+    <p style="margin: 20px 0 5px 0; font-size: 12px; color: rgba(255,255,255,0.5);">🧪 Developer Test Link:</p>
+    <div class="copy-box">{deep_link}</div>
+  </div>
+</body>
+</html>"""
+        return HttpResponse(html_content, content_type='text/html')

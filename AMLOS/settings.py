@@ -226,3 +226,12 @@ LOGGING = {
         },
     },
 }
+
+# Email Configuration for Live Email Delivery
+EMAIL_BACKEND = 'utils.custom_email_backend.SSLBypassEmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+DEFAULT_FROM_EMAIL = f"AMLOS Learning Platform <{EMAIL_HOST_USER}>"

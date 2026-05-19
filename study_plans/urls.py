@@ -12,7 +12,10 @@ from .views import (
     GetPlanHistory,
     SelectRecommendedPlanView,
     UpdateStudyPlanView,
-    DeleteStudyPlanView
+    DeleteStudyPlanView,
+    UpdateTimeSpentView,
+    GetTimeSpentHistoryView,
+    GetLeaderboardView
 )
 
 urlpatterns = [
@@ -62,4 +65,9 @@ urlpatterns = [
     # USAGE: Select a recommended plan to make it the student's active plan
     # ROLE: STUDENT
     path('recommended/<int:plan_id>/select', SelectRecommendedPlanView.as_view(), name='select-recommended-plan'),
+    
+    # Daily Study Time-spent APIs
+    path('time-spent/update', UpdateTimeSpentView.as_view(), name='update-time-spent'),
+    path('time-spent/history', GetTimeSpentHistoryView.as_view(), name='time-spent-history'),
+    path('time-spent/leaderboard', GetLeaderboardView.as_view(), name='time-spent-leaderboard'),
 ]

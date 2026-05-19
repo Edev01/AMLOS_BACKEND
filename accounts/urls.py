@@ -17,4 +17,7 @@ urlpatterns = [
     path('schools/<int:school_id>/students', GetSchoolStudentsView.as_view()),
     path('schools/<int:school_id>/update', UpdateSchoolView.as_view()),
     path('schools/<int:school_id>/delete', DeleteSchoolView.as_view()),
+    path('password-reset/request', RequestPasswordResetView.as_view(), name='password-reset-request'),
+    path('password-reset/confirm', ConfirmPasswordResetView.as_view(), name='password-reset-confirm'),
+    path('password-reset/redirect', PasswordResetRedirectView.as_view(), name='password-reset-redirect'),
 ]

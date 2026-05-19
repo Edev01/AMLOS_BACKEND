@@ -69,6 +69,7 @@ class StudyPlanSLO(models.Model):
     
     # Progress tracking
     is_completed = models.BooleanField(default=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = 'study_plan_slos'
@@ -76,3 +77,16 @@ class StudyPlanSLO(models.Model):
 
     def __str__(self):
         return f"{self.plan.title} - {self.slo.name} on {self.scheduled_date}"
+
+class DailyTimeSpent(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='daily_time_spent')
+    date = models.DateField(default=timezone.now)
+    time_spent_seconds = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = 'daily_time_spent'
+        unique_together = ('user', 'date')
+
+    def __str__(self):
+        return f"{self.user.email} - {self.date}: {self.time_spent_seconds}s"
+

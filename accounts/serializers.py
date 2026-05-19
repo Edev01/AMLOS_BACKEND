@@ -31,7 +31,14 @@ class LoginSerializer(serializers.Serializer):
 
 
         if email and password:
-            user = authenticate(username=email, password=password)
+            # Find the user case-insensitively to support case-insensitive email logins
+            try:
+                user_obj = User.objects.get(email__iexact=email.strip())
+                username_to_auth = user_obj.email
+            except User.DoesNotExist:
+                username_to_auth = email.strip()
+
+            user = authenticate(username=username_to_auth, password=password)
             if not user:
                 raise serializers.ValidationError("Invalid email or password.")
         else:
