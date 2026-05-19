@@ -599,15 +599,15 @@ class GetLeaderboardView(APIView):
 
             # Determine badge dynamically based on study persistence
             if total_hours >= 10.0:
-                badge = "Productivity Beast 🔥"
+                badge = "Productivity Beast"
             elif total_hours >= 5.0:
-                badge = "Streak Master ⚡"
+                badge = "Streak Master"
             else:
-                badge = "Dedicated Learner 📚"
+                badge = "Dedicated Learner"
 
-            avatar = "👩‍🎓" if rank % 2 == 0 else "👨‍🎓"
+            avatar = "female_student" if rank % 2 == 0 else "male_student"
             if is_me:
-                avatar = "⭐"
+                avatar = "star"
 
             leaderboard_data.append({
                 "rank": rank,
@@ -629,32 +629,13 @@ class GetLeaderboardView(APIView):
                 "rank": rank,
                 "name": f"You ({request.user.username})",
                 "hours": "0.0 hrs",
-                "badge": "Consistency King 👑",
+                "badge": "Consistency King",
                 "isMe": True,
-                "avatar": "⭐",
+                "avatar": "star",
                 "total_seconds": 0
             })
 
-        # Seed pre-populated competitive student targets to keep leaderboard active and engaging
-        mock_candidates = [
-            {"name": "Ayesha Khan", "hours": "14.5 hrs", "badge": "Productivity Beast 🔥", "avatar": "👩‍🎓", "total_seconds": 52200},
-            {"name": "Zain Ahmed", "hours": "12.2 hrs", "badge": "Streak Master ⚡", "avatar": "👨‍🎓", "total_seconds": 43920},
-            {"name": "Sara Ali", "hours": "9.4 hrs", "badge": "Early Bird 🌅", "avatar": "👩‍🎓", "total_seconds": 33840},
-            {"name": "Hamza Bilal", "hours": "7.8 hrs", "badge": "Dedicated Learner 📚", "avatar": "👨‍🎓", "total_seconds": 28080},
-        ]
 
-        for mock in mock_candidates:
-            if any(x['name'].lower() == mock['name'].lower() for x in leaderboard_data):
-                continue
-            leaderboard_data.append({
-                "rank": 0,
-                "name": mock['name'],
-                "hours": mock['hours'],
-                "badge": mock['badge'],
-                "isMe": False,
-                "avatar": mock['avatar'],
-                "total_seconds": mock['total_seconds']
-            })
 
         # Sort combined results dynamically by total_seconds spent
         leaderboard_data.sort(key=lambda x: x['total_seconds'], reverse=True)
