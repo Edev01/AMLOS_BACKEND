@@ -30,20 +30,24 @@ class LoginView(APIView):
             profile = user.get_profile()   
             profile_data = {}
             if profile:
-                
-                profile_data = {
-                    field.name: getattr(profile, field.attname)
-                    for field in profile._meta.fields
-                    if field.name != 'id' and field.name != 'user'
-                }
+                for field in profile._meta.fields:
+                    if field.name in ('id', 'user'):
+                        continue
+                    value = getattr(profile, field.attname)
+                    # Serialize date/datetime objects to strings
+                    if hasattr(value, 'isoformat'):
+                        value = value.isoformat()
+                    profile_data[field.name] = value
 
             if user.role == "STUDENT":
                 is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
                 profile_data['is_plan_active'] = is_plan_active
-                # Explicitly expose student-specific fields for the mobile app
-                profile_data['grade'] = profile.grade
-                profile_data['roll_number'] = profile.roll_number
-                profile_data['member_since'] = profile.enrollment_date.strftime('%Y') if profile.enrollment_date else str(user.date_joined.year)
+                if profile:
+                    profile_data['member_since'] = (
+                        profile.enrollment_date.strftime('%Y')
+                        if profile.enrollment_date
+                        else str(user.date_joined.year)
+                    )
 
             user_data = {
                 "id": user.id,
