@@ -40,6 +40,10 @@ class LoginView(APIView):
             if user.role == "STUDENT":
                 is_plan_active = StudyPlan.objects.filter(user=user, status=StudyPlan.Status.ACTIVE).exists()
                 profile_data['is_plan_active'] = is_plan_active
+                # Explicitly expose student-specific fields for the mobile app
+                profile_data['grade'] = profile.grade
+                profile_data['roll_number'] = profile.roll_number
+                profile_data['member_since'] = profile.enrollment_date.strftime('%Y') if profile.enrollment_date else str(user.date_joined.year)
 
             user_data = {
                 "id": user.id,
