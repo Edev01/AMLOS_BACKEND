@@ -40,6 +40,8 @@ class StudyPlan(models.Model):
     is_completable = models.BooleanField(default=True)
     last_recalculated_at = models.DateField(auto_now_add=True)
     
+    skip_weekends = models.BooleanField(default=False)
+    
     custom_pattern = models.JSONField(null=True, blank=True)
     subject_order = models.JSONField(null=True, blank=True) # Now supports nested lists for phases
     

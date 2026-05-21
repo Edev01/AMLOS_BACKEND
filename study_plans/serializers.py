@@ -26,7 +26,7 @@ class CreateStudyPlanSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'plan_type', 'grade', 'mode', 'start_date', 'end_date', 
             'min_study_time_daily', 'max_study_time_daily', 'custom_pattern', 
-            'subject_order', 'slo_ids'
+            'subject_order', 'slo_ids', 'skip_weekends'
         ]
 
     def validate(self, data):
@@ -76,7 +76,7 @@ class StudyPlanDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'plan_type', 'grade', 'mode', 'start_date', 'end_date',
             'min_study_time_daily', 'max_study_time_daily', 'is_completable',
-            'total_slo_time', 'total_available_time', 
+            'total_slo_time', 'total_available_time', 'skip_weekends',
             'current_streak', 'subjects',
             'status', 'created_at', 'scheduled_slos'
         ]
@@ -95,6 +95,7 @@ class ValidatePlanSerializer(serializers.Serializer):
     end_date = serializers.DateField()
     min_study_time_daily = serializers.IntegerField(default=120)
     max_study_time_daily = serializers.IntegerField(default=300)
+    skip_weekends = serializers.BooleanField(default=False)
 
 
 class StudyPlanHistorySerializer(serializers.ModelSerializer):

@@ -29,6 +29,7 @@ class StudyPlanEngine:
         self.max_study_time_daily = plan_data.get('max_study_time_daily', 300)
         self.subject_order = plan_data.get('subject_order', [])
         self.custom_pattern = plan_data.get('custom_pattern', {})
+        self.skip_weekends = plan_data.get('skip_weekends', False)
 
     def calculate_total_slo_time(self, slo_ids=None):
         ids = slo_ids or self.slo_ids
@@ -38,7 +39,12 @@ class StudyPlanEngine:
     def calculate_available_time(self, start_date=None, end_date=None):
         start = start_date or self.start_date
         end = end_date or self.end_date
-        total_days = (end - start).days + 1
+        
+        if self.skip_weekends:
+            total_days = sum(1 for d in range((end - start).days + 1) if (start + timedelta(days=d)).weekday() < 5)
+        else:
+            total_days = (end - start).days + 1
+            
         max_time = total_days * self.max_study_time_daily
         min_time = total_days * self.min_study_time_daily
         return min_time, max_time, total_days
@@ -227,9 +233,17 @@ class StudyPlanEngine:
         daily_used = 0
         order = 1
         
+        # Advance current_date to a weekday if starting on a weekend and skip_weekends is true
+        if self.skip_weekends:
+            while current_date.weekday() >= 5:
+                current_date += timedelta(days=1)
+        
         for slo in slos:
             if daily_used + slo.estimated_time > self.max_study_time_daily:
                 current_date += timedelta(days=1)
+                if self.skip_weekends:
+                    while current_date.weekday() >= 5:
+                        current_date += timedelta(days=1)
                 daily_used = 0
                 order = 1
             
