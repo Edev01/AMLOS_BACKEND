@@ -650,3 +650,26 @@ class GetLeaderboardView(APIView):
             data=leaderboard_data[:10],
             status_code=status.HTTP_200_OK
         )
+
+class SchoolStudentCustomPlansView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def get(self, request, student_id):
+        plans = StudyPlan.objects.filter(
+            user_id=student_id,
+            plan_type=StudyPlan.PlanType.CUSTOM
+        ).prefetch_related(
+            Prefetch(
+                'scheduled_slos',
+                queryset=StudyPlanSLO.objects.select_related('slo')
+            )
+        ).order_by('-created_at')
+
+        serializer = StudyPlanHistorySerializer(plans, many=True)
+        return response_builder(
+            success=True,
+            message=f"Custom plans for student {student_id} fetched successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )

@@ -15,7 +15,8 @@ from .views import (
     DeleteStudyPlanView,
     UpdateTimeSpentView,
     GetTimeSpentHistoryView,
-    GetLeaderboardView
+    GetLeaderboardView,
+    SchoolStudentCustomPlansView
 )
 
 urlpatterns = [
@@ -70,4 +71,8 @@ urlpatterns = [
     path('time-spent/update', UpdateTimeSpentView.as_view(), name='update-time-spent'),
     path('time-spent/history', GetTimeSpentHistoryView.as_view(), name='time-spent-history'),
     path('time-spent/leaderboard', GetLeaderboardView.as_view(), name='time-spent-leaderboard'),
+    
+    # USAGE: Fetch all custom plans for a specific student
+    # ROLE: SCHOOL
+    path('school/student/<int:student_id>/plans', SchoolStudentCustomPlansView.as_view(), name='school-student-plans'),
 ]
