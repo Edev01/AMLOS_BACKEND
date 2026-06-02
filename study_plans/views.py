@@ -151,7 +151,12 @@ class GetActivePlanView(APIView):
 
     def get(self, request):
         # Find the active plan for the user
-        plan = StudyPlan.objects.filter(user=request.user, status=StudyPlan.Status.ACTIVE).first()
+        plan = StudyPlan.objects.prefetch_related(
+            Prefetch(
+                'scheduled_slos',
+                queryset=StudyPlanSLO.objects.select_related('slo')
+            )
+        ).filter(user=request.user, status=StudyPlan.Status.ACTIVE).first()
         
         if not plan:
             return response_builder(
@@ -197,7 +202,15 @@ class StudyPlanDetailView(APIView):
     allowed_roles = ['ADMIN', 'STUDENT']
 
     def get(self, request, plan_id):
-        plan = get_object_or_404(StudyPlan, id=plan_id)
+        plan = get_object_or_404(
+            StudyPlan.objects.prefetch_related(
+                Prefetch(
+                    'scheduled_slos',
+                    queryset=StudyPlanSLO.objects.select_related('slo')
+                )
+            ), 
+            id=plan_id
+        )
         if request.user.role != 'ADMIN' and plan.user != request.user:
              if plan.plan_type != StudyPlan.PlanType.RECOMMENDED:
                  return response_builder(success=False, message="Access denied.", status_code=status.HTTP_403_FORBIDDEN)
