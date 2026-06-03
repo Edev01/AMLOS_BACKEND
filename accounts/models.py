@@ -28,6 +28,9 @@ class User(AbstractUser):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    fcm_token = models.CharField(max_length=255, null=True, blank=True)
+
+
   
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username'] 

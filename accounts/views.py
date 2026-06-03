@@ -25,6 +25,12 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.validated_data['user']
+            
+            fcm_token = request.data.get('fcm_token')
+            if fcm_token:
+                user.fcm_token = fcm_token
+                user.save(update_fields=['fcm_token'])
+                
             tokens = get_tokens_for_user(user)
 
             profile = user.get_profile()   
