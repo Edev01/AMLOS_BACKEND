@@ -9,12 +9,13 @@ class SLODetailSerializer(serializers.ModelSerializer):
 
 class StudyPlanSLOSerializer(serializers.ModelSerializer):
     slo_name = serializers.CharField(source='slo.name', read_only=True)
+    slo_no = serializers.CharField(source='slo.slo_no', read_only=True)
     google_drive_link = serializers.CharField(source='slo.google_drive_link', read_only=True)
     difficulty = serializers.CharField(source='slo.difficulty_frequency', read_only=True)
 
     class Meta:
         model = StudyPlanSLO
-        fields = ['id', 'slo', 'slo_name', 'scheduled_date', 'order_in_day', 'subject_name', 'chapter_name', 'estimated_time', 'is_completed', 'google_drive_link', 'difficulty']
+        fields = ['id', 'slo', 'slo_no', 'slo_name', 'scheduled_date', 'order_in_day', 'subject_name', 'chapter_name', 'estimated_time', 'is_completed', 'google_drive_link', 'difficulty']
 
 class CreateStudyPlanSerializer(serializers.ModelSerializer):
     slo_ids = serializers.ListField(
