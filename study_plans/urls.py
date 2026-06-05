@@ -16,7 +16,9 @@ from .views import (
     UpdateTimeSpentView,
     GetTimeSpentHistoryView,
     GetLeaderboardView,
-    SchoolStudentCustomPlansView
+    SchoolStudentCustomPlansView,
+    ListNotificationsView,
+    MarkNotificationReadView
 )
 
 urlpatterns = [
@@ -75,4 +77,8 @@ urlpatterns = [
     # USAGE: Fetch all custom plans for a specific student
     # ROLE: SCHOOL
     path('school/student/<int:student_id>/plans', SchoolStudentCustomPlansView.as_view(), name='school-student-plans'),
+
+    # Notifications APIs
+    path('notifications', ListNotificationsView.as_view(), name='list-notifications'),
+    path('notifications/<int:notification_id>/read', MarkNotificationReadView.as_view(), name='mark-notification-read'),
 ]

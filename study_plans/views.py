@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.shortcuts import get_object_or_404
 from utils.response_builder import response_builder
 from accounts.permissions import IsRole
-from .models import StudyPlan, StudyPlanSLO, DailyTimeSpent
+from .models import StudyPlan, StudyPlanSLO, DailyTimeSpent, Notification
 from curriculum.models import SLO
 from .serializers import (
     CreateStudyPlanSerializer, 
@@ -65,6 +65,24 @@ class CreateStudyPlanView(APIView):
             engine = StudyPlanEngine(serializer.validated_data)
             try:
                 count = engine.generate_schedule(plan)
+                
+                # Send notifications to all students without an active study plan
+                if plan.plan_type == StudyPlan.PlanType.RECOMMENDED:
+                    from django.contrib.auth import get_user_model
+                    User = get_user_model()
+                    students = User.objects.filter(role='STUDENT')
+                    for student in students:
+                        has_active_plan = StudyPlan.objects.filter(
+                            user=student,
+                            status=StudyPlan.Status.ACTIVE
+                        ).exists()
+                        if not has_active_plan:
+                            Notification.objects.create(
+                                user=student,
+                                title="New Recommended Plan Available! 🎯",
+                                body=f"Admin has created a new recommended study plan '{plan.title}' for grade '{plan.grade}'. Activate it now to start learning!",
+                            )
+
                 return response_builder(
                     success=True,
                     message=f"Study plan created with {count} scheduled SLOs.",
@@ -684,5 +702,38 @@ class SchoolStudentCustomPlansView(APIView):
             success=True,
             message=f"Custom plans for student {student_id} fetched successfully.",
             data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+class ListNotificationsView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        notifications = Notification.objects.filter(user=request.user).order_by('-created_at')
+        data = [{
+            "id": n.id,
+            "title": n.title,
+            "body": n.body,
+            "is_read": n.is_read,
+            "created_at": n.created_at.isoformat()
+        } for n in notifications]
+        return response_builder(
+            success=True,
+            message="Notifications fetched successfully.",
+            data=data,
+            status_code=status.HTTP_200_OK
+        )
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, notification_id):
+        notification = get_object_or_404(Notification, id=notification_id, user=request.user)
+        notification.is_read = True
+        notification.save()
+        return response_builder(
+            success=True,
+            message="Notification marked as read.",
+            data={"id": notification.id, "is_read": True},
             status_code=status.HTTP_200_OK
         )
