@@ -1,4 +1,5 @@
 from django.shortcuts import render
+import threading
 
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .serializers import CustomTokenSerializer
@@ -602,7 +603,7 @@ class RequestPasswordResetView(APIView):
             to=[user.email]
         )
         msg.attach_alternative(html_content, "text/html")
-        msg.send()
+        threading.Thread(target=msg.send).start()
 
         return response_builder(
             success=True,
