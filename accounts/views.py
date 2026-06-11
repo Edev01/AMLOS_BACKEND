@@ -229,12 +229,15 @@ class DeleteTeacherView(APIView):
     def delete(self, request, teacher_id):
         school = request.user.school_profile
         teacher = get_object_or_404(Teacher, id=teacher_id, school=school)
+        user = teacher.user
         
-        teacher.user.delete()
-        
+        teacher.delete()
+        if user:
+            user.delete()
+
         return response_builder(
             success=True,
-            message="Teacher deleted successfully",
+            message="Teacher and associated user deleted successfully",
             data=None,
             status_code=status.HTTP_200_OK
         )
@@ -370,12 +373,15 @@ class DeleteStudentView(APIView):
 
         
         student = get_object_or_404(Student, id=student_id, school=school)
+        user = student.user
  
-        student.user.delete()  
+        student.delete()
+        if user:
+            user.delete()
 
         return response_builder(
             success=True,
-            message="Student deleted successfully",
+            message="Student and associated user deleted successfully",
             data=None,
             status_code=status.HTTP_200_OK
         )
