@@ -9,6 +9,8 @@ class User(AbstractUser):
         SCHOOL = 'SCHOOL', 'School'
         TEACHER = 'TEACHER', 'Teacher'
         STUDENT = 'STUDENT', 'Student'
+        HR = 'HR', 'HR'
+        FINANCE = 'FINANCE', 'Finance'
 
   
     email = models.EmailField(unique=True, db_index=True)
@@ -44,6 +46,8 @@ class User(AbstractUser):
             self.Role.SCHOOL: getattr(self, 'school_profile', None),
             self.Role.TEACHER: getattr(self, 'teacher_profile', None),
             self.Role.STUDENT: getattr(self, 'student_profile', None),
+            self.Role.HR: getattr(self, 'hr_profile', None),
+            self.Role.FINANCE: getattr(self, 'finance_profile', None),
         }.get(self.role)
 
     def __str__(self):
@@ -146,3 +150,29 @@ class Admin(models.Model):
 
     def __str__(self):
         return f"{self.user.email} ({self.access_level})"
+
+class HRProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='hr_profile'
+    )
+
+    class Meta:
+        db_table = "hr_profile"
+
+    def __str__(self):
+        return f"{self.user.email} (HR)"
+
+class FinanceProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='finance_profile'
+    )
+
+    class Meta:
+        db_table = "finance_profile"
+
+    def __str__(self):
+        return f"{self.user.email} (Finance)"

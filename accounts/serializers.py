@@ -349,3 +349,8 @@ class UpdateSchoolSerializer(serializers.ModelSerializer):
             'established_year',
             'principal_name'
         ]
+
+class UserRoleManagementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email', 'first_name', 'last_name', 'role']

@@ -20,4 +20,6 @@ urlpatterns = [
     path('password-reset/request', RequestPasswordResetView.as_view(), name='password-reset-request'),
     path('password-reset/confirm', ConfirmPasswordResetView.as_view(), name='password-reset-confirm'),
     path('password-reset/redirect', PasswordResetRedirectView.as_view(), name='password-reset-redirect'),
+    path('users', UserListSearchView.as_view()),
+    path('users/<int:user_id>/role', UpdateUserRoleView.as_view()),
 ]

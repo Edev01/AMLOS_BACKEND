@@ -14,9 +14,9 @@ from rest_framework import status
 from accounts.serializers import *
 from rest_framework.permissions import AllowAny
 from utils.jwt_utils import get_tokens_for_user 
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 
 from study_plans.models import StudyPlan
 
@@ -779,3 +779,73 @@ class PasswordResetRedirectView(APIView):
 </body>
 </html>"""
         return HttpResponse(html_content, content_type='text/html')
+
+class UserPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class UserListSearchView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request):
+        search_query = request.query_params.get('search', '')
+        users = User.objects.all().order_by('-created_at')
+
+        if search_query:
+            users = users.filter(
+                Q(email__icontains=search_query) |
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query)
+            )
+
+        paginator = UserPagination()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserRoleManagementSerializer(paginated_users, many=True)
+        
+        return response_builder(
+            success=True,
+            message="Users fetched successfully",
+            data={
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+class UpdateUserRoleView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def patch(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+        new_role = request.data.get('role')
+
+        if not new_role:
+            return response_builder(success=False, message="Role is required", data=None, status_code=status.HTTP_400_BAD_REQUEST)
+
+        valid_roles = [choice[0] for choice in User.Role.choices]
+        if new_role not in valid_roles:
+            return response_builder(success=False, message=f"Invalid role. Must be one of {valid_roles}", data=None, status_code=status.HTTP_400_BAD_REQUEST)
+
+        user.role = new_role
+        user.save()
+
+        # Automatically create profile models for Admin, HR, or Finance if they don't exist
+        if new_role == User.Role.ADMIN:
+            Admin.objects.get_or_create(user=user)
+        elif new_role == User.Role.HR:
+            HRProfile.objects.get_or_create(user=user)
+        elif new_role == User.Role.FINANCE:
+            FinanceProfile.objects.get_or_create(user=user)
+
+        serializer = UserRoleManagementSerializer(user)
+        return response_builder(
+            success=True,
+            message="User role updated successfully",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
