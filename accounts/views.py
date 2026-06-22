@@ -16,6 +16,7 @@ from rest_framework.permissions import AllowAny
 from utils.jwt_utils import get_tokens_for_user 
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.shortcuts import get_object_or_404
+from rest_framework.pagination import PageNumberPagination
 
 from study_plans.models import StudyPlan
 
@@ -388,17 +389,29 @@ class DeleteStudentView(APIView):
         )
 
 
+class CustomSchoolPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class GetAllSchoolsView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
     allowed_roles = ['ADMIN']
 
     def get(self, request):
-        schools = School.objects.all()
-        serializer = SchoolSerializer(schools, many=True)
+        schools = School.objects.all().order_by('id')
+        paginator = CustomSchoolPagination()
+        paginated_schools = paginator.paginate_queryset(schools, request)
+        serializer = SchoolSerializer(paginated_schools, many=True)
         return response_builder(
             success=True,
             message="Schools fetched successfully",
-            data=serializer.data,
+            data={
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            },
             status_code=status.HTTP_200_OK
         )
 

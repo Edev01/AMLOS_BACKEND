@@ -21,3 +21,19 @@ class ChapterSerializer(serializers.ModelSerializer):
     class Meta:
         model = Chapter
         fields = ['id', 'subject', 'name', 'created_at', 'slos', 'topic_count']
+
+from .models import CurriculumBulkUpload
+
+class CurriculumBulkUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CurriculumBulkUpload
+        fields = ['id', 'grade', 'uploaded_file', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
+
+from .models import Grade
+
+class GradeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Grade
+        fields = ['id', 'name', 'description', 'created_at']
+        read_only_fields = ['id', 'created_at']

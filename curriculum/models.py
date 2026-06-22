@@ -46,3 +46,25 @@ class SLO(models.Model):
 
     def __str__(self):
         return self.name
+
+class CurriculumBulkUpload(models.Model):
+    grade = models.CharField(max_length=20)
+    uploaded_file = models.FileField(upload_to='bulk_uploads/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'curriculum_bulk_uploads'
+
+    def __str__(self):
+        return f"Bulk Upload for Grade {self.grade} at {self.uploaded_at}"
+
+class Grade(models.Model):
+    name = models.CharField(max_length=20, unique=True, help_text="E.g., 9, 10, 11")
+    description = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'grades'
+
+    def __str__(self):
+        return self.name
