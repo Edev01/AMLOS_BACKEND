@@ -1,4 +1,5 @@
 import random
+import datetime
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -12,6 +13,13 @@ from curriculum.models import Subject, Chapter
 from study_plans.models import StudyPlan, StudyPlanSLO
 from .models import Question, AssessmentModel, StudentAssessment
 from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer
+
+from rest_framework.pagination import PageNumberPagination
+
+class AssessmentPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 def map_subject_name_to_question_subject(subject_name):
     mapping = {
@@ -185,6 +193,14 @@ class AvailableAssessmentsView(APIView):
                     is_unlocked = True
 
             attempt = student_attempts.get(assessment.id)
+            time_left_seconds = None
+            if attempt and assessment.duration_minutes is not None:
+                if attempt.is_completed:
+                    time_left_seconds = 0
+                else:
+                    expiry_time = attempt.started_at + datetime.timedelta(minutes=assessment.duration_minutes)
+                    time_left_seconds = max(0, int((expiry_time - timezone.now()).total_seconds()))
+
             available_assessments.append({
                 "id": assessment.id,
                 "title": assessment.title,
@@ -196,7 +212,10 @@ class AvailableAssessmentsView(APIView):
                 "is_completed": attempt.is_completed if attempt else False,
                 "score": attempt.score if attempt else 0,
                 "total_marks": attempt.total_marks if attempt else 0,
-                "completed_at": attempt.completed_at.isoformat() if attempt and attempt.completed_at else None
+                "completed_at": attempt.completed_at.isoformat() if attempt and attempt.completed_at else None,
+                "duration_minutes": assessment.duration_minutes,
+                "started_at": attempt.started_at.isoformat() if attempt else None,
+                "time_left_seconds": time_left_seconds
             })
 
         return response_builder(
@@ -214,6 +233,7 @@ class AssessmentDetailView(APIView):
         assessment = get_object_or_404(AssessmentModel, id=id)
         questions = assessment.questions.all()
         
+        attempt = None
         # Verify access for students: they must only access unlocked assessments
         if request.user.role == 'STUDENT':
             # Check if this assessment is unlocked for this student
@@ -224,12 +244,29 @@ class AssessmentDetailView(APIView):
                     message="Assessment not unlocked or not belonging to your grade.",
                     status_code=status.HTTP_403_FORBIDDEN
                 )
+            
+            # Start timer by retrieving or creating the StudentAssessment attempt
+            attempt, created = StudentAssessment.objects.get_or_create(
+                student=request.user,
+                assessment_model=assessment
+            )
 
         serializer = AssessmentModelSerializer(assessment)
         questions_serializer = QuestionSerializer(questions, many=True)
 
         data = serializer.data
         data['questions'] = questions_serializer.data
+
+        if request.user.role == 'STUDENT' and attempt:
+            data['started_at'] = attempt.started_at.isoformat()
+            time_left_seconds = None
+            if assessment.duration_minutes is not None:
+                if attempt.is_completed:
+                    time_left_seconds = 0
+                else:
+                    expiry_time = attempt.started_at + datetime.timedelta(minutes=assessment.duration_minutes)
+                    time_left_seconds = max(0, int((expiry_time - timezone.now()).total_seconds()))
+            data['time_left_seconds'] = time_left_seconds
 
         return response_builder(
             success=True,
@@ -268,6 +305,17 @@ class SubmitAssessmentView(APIView):
             }
         )
 
+        # Check time limit constraint if the attempt was already started previously
+        if assessment.duration_minutes is not None:
+            if not created:
+                expiry_time = attempt.started_at + datetime.timedelta(minutes=assessment.duration_minutes)
+                if timezone.now() > expiry_time:
+                    return response_builder(
+                        success=False,
+                        message="Time limit exceeded. This assessment is closed for submissions.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
         if not created:
             attempt.score = score
             attempt.total_marks = total_marks
@@ -300,4 +348,152 @@ class AssessmentMetadataView(APIView):
             message="Assessment enums and metadata fetched successfully.",
             data=data
         )
+
+class ListAllAssessmentModelsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request):
+        assessments = AssessmentModel.objects.all().order_by('-created_at')
+        paginator = AssessmentPagination()
+        paginated_assessments = paginator.paginate_queryset(assessments, request)
+        serializer = AssessmentModelSerializer(paginated_assessments, many=True)
+        return response_builder(
+            success=True,
+            message="All assessment models fetched successfully.",
+            data={
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+class UpdateAssessmentModelView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def patch(self, request, id):
+        assessment = get_object_or_404(AssessmentModel, id=id)
+        serializer = AssessmentModelSerializer(assessment, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return response_builder(
+                success=True,
+                message="Assessment model updated successfully.",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(success=False, message=errors, status_code=status.HTTP_400_BAD_REQUEST)
+
+class DeleteAssessmentModelView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def delete(self, request, id):
+        assessment = get_object_or_404(AssessmentModel, id=id)
+        assessment.delete()
+        return response_builder(
+            success=True,
+            message="Assessment model deleted successfully.",
+            status_code=status.HTTP_200_OK
+        )
+
+class SubmitHandwrittenAssessmentView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['STUDENT']
+
+    def post(self, request, id):
+        assessment = get_object_or_404(AssessmentModel, id=id)
+        
+        # Verify access for student
+        active_plan = StudyPlan.objects.filter(user=request.user, status=StudyPlan.Status.ACTIVE).first()
+        if not active_plan or active_plan.grade != assessment.grade:
+            return response_builder(success=False, message="Assessment not unlocked or not belonging to your grade.", status_code=status.HTTP_403_FORBIDDEN)
+        
+        submission_file = request.FILES.get('submission_file')
+        if not submission_file:
+            return response_builder(success=False, message="submission_file is required.", status_code=status.HTTP_400_BAD_REQUEST)
+        
+        attempt, created = StudentAssessment.objects.get_or_create(
+            student=request.user,
+            assessment_model=assessment,
+            defaults={
+                'is_completed': True,
+                'completed_at': timezone.now(),
+                'submission_file': submission_file
+            }
+        )
+
+        # Check time limit constraint if the attempt was already started previously
+        if assessment.duration_minutes is not None:
+            if not created:
+                expiry_time = attempt.started_at + datetime.timedelta(minutes=assessment.duration_minutes)
+                if timezone.now() > expiry_time:
+                    return response_builder(
+                        success=False,
+                        message="Time limit exceeded. This assessment is closed for submissions.",
+                        status_code=status.HTTP_400_BAD_REQUEST
+                    )
+
+        if not created:
+            attempt.is_completed = True
+            attempt.completed_at = timezone.now()
+            attempt.submission_file = submission_file
+            attempt.save()
+
+        return response_builder(
+            success=True,
+            message="Handwritten assessment submitted successfully.",
+            data=StudentAssessmentSerializer(attempt).data,
+            status_code=status.HTTP_200_OK
+        )
+
+class ListStudentSubmissionsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN', 'SCHOOL', 'TEACHER']
+
+    def get(self, request):
+        submissions = StudentAssessment.objects.filter(is_completed=True).order_by('-completed_at')
+        paginator = AssessmentPagination()
+        paginated_submissions = paginator.paginate_queryset(submissions, request)
+        serializer = StudentAssessmentSerializer(paginated_submissions, many=True)
+        return response_builder(
+            success=True,
+            message="Submissions fetched successfully.",
+            data={
+                "count": paginator.page.paginator.count,
+                "next": paginator.get_next_link(),
+                "previous": paginator.get_previous_link(),
+                "results": serializer.data
+            },
+            status_code=status.HTTP_200_OK
+        )
+
+class GradeStudentAssessmentView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN', 'SCHOOL', 'TEACHER']
+
+    def patch(self, request, submission_id):
+        submission = get_object_or_404(StudentAssessment, id=submission_id)
+        score = request.data.get('score')
+        total_marks = request.data.get('total_marks', submission.total_marks)
+
+        if score is None:
+            return response_builder(success=False, message="score is required.", status_code=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            submission.score = int(score)
+            submission.total_marks = int(total_marks)
+            submission.save()
+            return response_builder(
+                success=True,
+                message="Submission graded successfully.",
+                data=StudentAssessmentSerializer(submission).data,
+                status_code=status.HTTP_200_OK
+            )
+        except ValueError:
+            return response_builder(success=False, message="Invalid score format.", status_code=status.HTTP_400_BAD_REQUEST)
 

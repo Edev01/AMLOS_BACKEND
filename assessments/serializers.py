@@ -16,7 +16,7 @@ class AssessmentModelSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'assessment_type', 'grade', 'subject', 'subject_name',
             'chapter_ids', 'chapters_details', 'cognitive_levels', 'categories',
-            'total_questions', 'mcq_count', 'short_count', 'long_count', 'created_at'
+            'total_questions', 'mcq_count', 'short_count', 'long_count', 'duration_minutes', 'created_at'
         ]
 
     def get_chapters_details(self, obj):
@@ -34,5 +34,5 @@ class StudentAssessmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = StudentAssessment
-        fields = ['id', 'student', 'assessment_model', 'assessment_title', 'assessment_type', 'score', 'total_marks', 'is_completed', 'started_at', 'completed_at']
+        fields = ['id', 'student', 'assessment_model', 'assessment_title', 'assessment_type', 'score', 'total_marks', 'is_completed', 'started_at', 'completed_at', 'submission_file']
         read_only_fields = ['student', 'started_at', 'completed_at']

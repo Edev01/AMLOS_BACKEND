@@ -52,6 +52,7 @@ class AssessmentModel(models.Model):
     short_count = models.IntegerField(default=0)
     long_count = models.IntegerField(default=0)
     questions = models.ManyToManyField(Question, related_name='assessments', blank=True)
+    duration_minutes = models.IntegerField(null=True, blank=True, help_text="Duration in minutes. Leave blank/null for no time limit.")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -69,6 +70,7 @@ class StudentAssessment(models.Model):
     is_completed = models.BooleanField(default=False)
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
+    submission_file = models.FileField(upload_to='assessment_submissions/', null=True, blank=True)
 
     class Meta:
         db_table = 'student_assessments'
