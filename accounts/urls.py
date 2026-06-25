@@ -22,4 +22,5 @@ urlpatterns = [
     path('password-reset/redirect', PasswordResetRedirectView.as_view(), name='password-reset-redirect'),
     path('users', UserListSearchView.as_view()),
     path('users/<int:user_id>/role', UpdateUserRoleView.as_view()),
+    path('upload-image', UploadProfileImageView.as_view(), name='upload-image'),
 ]

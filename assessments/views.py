@@ -474,7 +474,7 @@ class ListStudentSubmissionsView(APIView):
 
 class GradeStudentAssessmentView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['ADMIN', 'SCHOOL', 'TEACHER']
+    allowed_roles = ['TEACHER']
 
     def patch(self, request, submission_id):
         submission = get_object_or_404(StudentAssessment, id=submission_id)

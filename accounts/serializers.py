@@ -73,6 +73,7 @@ class CreateSchoolSerializer(serializers.Serializer):
     username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, min_length=6)
     email = serializers.EmailField()
+    profile_image = serializers.URLField(required=False, allow_null=True, allow_blank=True)
     
     # School fields
     school_name = serializers.CharField(max_length=255)
@@ -102,11 +103,13 @@ class CreateSchoolSerializer(serializers.Serializer):
         Create User + School profile in one atomic transaction
         """
         with transaction.atomic():
+            profile_image = validated_data.get('profile_image', None)
             user = User.objects.create_user(
                 username=validated_data['email'],
                 email=validated_data['email'],
                 password=validated_data['password'],
                 role=User.Role.SCHOOL,
+                profile_image=profile_image,
                 created_by=self.context['request'].user
             )
 
@@ -127,6 +130,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
+    profile_image = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
 
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
@@ -137,6 +141,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             'username',
             'password',
             'email',
+            'profile_image',
             'enrollment_date',
             'state',
             'first_name', 
@@ -157,6 +162,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
         username = validated_data.pop('username')
         password = validated_data.pop('password')
         email = validated_data.pop('email')
+        profile_image = validated_data.pop('profile_image', None)
 
         first_name = validated_data.pop('first_name', '')
         last_name = validated_data.pop('last_name', '')
@@ -169,6 +175,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             role=User.Role.STUDENT,
             first_name=first_name,
             last_name=last_name,
+            profile_image=profile_image,
             created_by=request.user
         )
 
@@ -186,6 +193,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
         last_name = validated_data.pop('last_name', None)
         email = validated_data.pop('email', None)
         password = validated_data.pop('password', None)
+        profile_image = validated_data.pop('profile_image', None)
 
         if first_name is not None:
             user.first_name = first_name
@@ -196,6 +204,8 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             user.username = email
         if password is not None:
             user.set_password(password)
+        if profile_image is not None:
+            user.profile_image = profile_image
 
         user.save()
 
@@ -208,6 +218,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
 class SchoolSerializer(serializers.ModelSerializer):
     teachers = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
+    profile_image = serializers.URLField(source='user.profile_image', read_only=True)
 
     class Meta:
         model = School
@@ -223,6 +234,7 @@ class StudentSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
+    profile_image = serializers.URLField(source='user.profile_image', read_only=True)
 
     class Meta:
         model = Student
@@ -231,6 +243,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'first_name', 
             'last_name', 
             'email', 
+            'profile_image',
             'roll_number', 
             'grade', 
             'section',
@@ -247,6 +260,7 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
     username = serializers.CharField(write_only=True)
     password = serializers.CharField(write_only=True)
     email = serializers.EmailField(write_only=True)
+    profile_image = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
     first_name = serializers.CharField(write_only=True, required=False)
     last_name = serializers.CharField(write_only=True, required=False)
 
@@ -256,6 +270,7 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
             'username',
             'password',
             'email',
+            'profile_image',
             'first_name',
             'last_name',
             'subject',
@@ -272,6 +287,7 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
         username = validated_data.pop('username')
         password = validated_data.pop('password')
         email = validated_data.pop('email')
+        profile_image = validated_data.pop('profile_image', None)
         first_name = validated_data.pop('first_name', '')
         last_name = validated_data.pop('last_name', '')
 
@@ -282,6 +298,7 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
             role=User.Role.TEACHER,
             first_name=first_name,
             last_name=last_name,
+            profile_image=profile_image,
             created_by=request.user
         )
 
@@ -299,6 +316,7 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
         last_name = validated_data.pop('last_name', None)
         email = validated_data.pop('email', None)
         password = validated_data.pop('password', None)
+        profile_image = validated_data.pop('profile_image', None)
 
         if first_name is not None:
             user.first_name = first_name
@@ -309,6 +327,8 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
             user.username = email
         if password is not None:
             user.set_password(password)
+        if profile_image is not None:
+            user.profile_image = profile_image
 
         user.save()
 
@@ -323,6 +343,7 @@ class TeacherSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
+    profile_image = serializers.URLField(source='user.profile_image', read_only=True)
 
     class Meta:
         model = Teacher
@@ -331,6 +352,7 @@ class TeacherSerializer(serializers.ModelSerializer):
             'first_name', 
             'last_name', 
             'email', 
+            'profile_image',
             'subject', 
             'qualification', 
             'experience_years', 
@@ -339,6 +361,8 @@ class TeacherSerializer(serializers.ModelSerializer):
         ]
 
 class UpdateSchoolSerializer(serializers.ModelSerializer):
+    profile_image = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)
+
     class Meta:
         model = School
         fields = [
@@ -347,10 +371,18 @@ class UpdateSchoolSerializer(serializers.ModelSerializer):
             'address',
             'website',
             'established_year',
-            'principal_name'
+            'principal_name',
+            'profile_image'
         ]
+
+    def update(self, instance, validated_data):
+        profile_image = validated_data.pop('profile_image', None)
+        if profile_image is not None:
+            instance.user.profile_image = profile_image
+            instance.user.save()
+        return super().update(instance, validated_data)
 
 class UserRoleManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'role']
+        fields = ['id', 'email', 'first_name', 'last_name', 'role', 'profile_image']

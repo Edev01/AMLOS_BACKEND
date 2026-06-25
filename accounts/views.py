@@ -1,7 +1,12 @@
 from django.shortcuts import render
 import threading
+import uuid
+import os
+from django.core.files.storage import default_storage
+from rest_framework.parsers import MultiPartParser, FormParser
 
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from .serializers import CustomTokenSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -137,7 +142,8 @@ class CreateSchoolView(APIView):
                     "address": school.address,
                     "website": school.website,
                     "established_year": school.established_year,
-                    "principal_name": school.principal_name
+                    "principal_name": school.principal_name,
+                    "profile_image": school.user.profile_image
                 }
             }
 
@@ -173,7 +179,8 @@ class CreateTeacherView(APIView):
                     "username": teacher.user.username,
                     "email": teacher.user.email,
                     "subject": teacher.subject,
-                    "school": teacher.school.school_name
+                    "school": teacher.school.school_name,
+                    "profile_image": teacher.user.profile_image
                 }
             }
 
@@ -294,7 +301,8 @@ class CreateStudentView(APIView):
                     "email": student.user.email,
                     "roll_number": student.roll_number,
                     "grade": student.grade,
-                    "school": student.school.school_name
+                    "school": student.school.school_name,
+                    "profile_image": student.user.profile_image
                 }
             }
 
@@ -847,5 +855,34 @@ class UpdateUserRoleView(APIView):
             success=True,
             message="User role updated successfully",
             data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+class UploadProfileImageView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get('image') or request.FILES.get('file')
+        if not uploaded_file:
+            return response_builder(
+                success=False,
+                message="No image or file provided. Use key 'image' or 'file'.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        ext = os.path.splitext(uploaded_file.name)[1]
+        unique_filename = f"profile_images/{uuid.uuid4()}{ext}"
+
+        file_path = default_storage.save(unique_filename, uploaded_file)
+        file_url = default_storage.url(file_path)
+
+        return response_builder(
+            success=True,
+            message="Image uploaded successfully.",
+            data={
+                "url": file_url,
+                "path": file_path
+            },
             status_code=status.HTTP_200_OK
         )

@@ -18,6 +18,7 @@ class User(AbstractUser):
     role = models.CharField(max_length=20, choices=Role.choices, db_index=True)
 
     phone = models.CharField(max_length=15, blank=True, null=True)
+    profile_image = models.URLField(max_length=500, null=True, blank=True, help_text="S3 URL of the user's profile image")
 
     created_by = models.ForeignKey(
         'self',
