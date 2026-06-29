@@ -4,6 +4,7 @@ from rest_framework.test import APITestCase
 from rest_framework import status
 from rest_framework_simplejwt.tokens import AccessToken
 from accounts.models import School, Student, Teacher
+from assessments.models import StudentAssessment, AssessmentModel
 
 User = get_user_model()
 
@@ -139,3 +140,152 @@ class ProfileImageAccountIntegrationTests(APITestCase):
         # Verify in DB
         created_user = User.objects.get(email="newteacher@amlos.com")
         self.assertEqual(created_user.profile_image, "https://s3.amazonaws.com/amlos/profile_images/teacher.png")
+
+
+class TeacherStudentAssignmentTests(APITestCase):
+
+    def setUp(self):
+        # Create School
+        self.school_user = User.objects.create_user(
+            email='school@amlos.com',
+            username='school',
+            password='password123',
+            role=User.Role.SCHOOL
+        )
+        self.school_profile = School.objects.create(
+            user=self.school_user,
+            school_name="Test School",
+            registration_number="REG-MAIN",
+            address="123 Main St",
+            principal_name="Principal Main"
+        )
+
+        # Create Teacher
+        self.teacher_user = User.objects.create_user(
+            email='teacher@amlos.com',
+            username='teacher',
+            password='password123',
+            role=User.Role.TEACHER
+        )
+        self.teacher_profile = Teacher.objects.create(
+            user=self.teacher_user,
+            school=self.school_profile,
+            subject="Maths",
+            qualification="B.Sc"
+        )
+
+        # Create Student 1 (Assigned)
+        self.student_user1 = User.objects.create_user(
+            email='student1@amlos.com',
+            username='student1',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.student_profile1 = Student.objects.create(
+            user=self.student_user1,
+            school=self.school_profile,
+            roll_number="S1",
+            grade="Grade 10"
+        )
+
+        # Create Student 2 (Unassigned)
+        self.student_user2 = User.objects.create_user(
+            email='student2@amlos.com',
+            username='student2',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.student_profile2 = Student.objects.create(
+            user=self.student_user2,
+            school=self.school_profile,
+            roll_number="S2",
+            grade="Grade 10"
+        )
+
+        # Create Subject
+        from curriculum.models import Subject
+        self.subject = Subject.objects.create(
+            name="Mathematics",
+            description="Math Description",
+            grade="Grade 10"
+        )
+
+        # Create Assessment
+        self.assessment = AssessmentModel.objects.create(
+            title="Algebra Final",
+            assessment_type=AssessmentModel.AssessmentType.CHAPTER_WISE,
+            grade="Grade 10",
+            subject=self.subject,
+            total_questions=5
+        )
+
+        # Create submissions for both students
+        self.submission1 = StudentAssessment.objects.create(
+            student=self.student_user1,
+            assessment_model=self.assessment,
+            is_completed=True,
+            score=0,
+            total_marks=100
+        )
+        self.submission2 = StudentAssessment.objects.create(
+            student=self.student_user2,
+            assessment_model=self.assessment,
+            is_completed=True,
+            score=0,
+            total_marks=100
+        )
+
+        self.school_token = str(AccessToken.for_user(self.school_user))
+        self.teacher_token = str(AccessToken.for_user(self.teacher_user))
+
+    def test_school_assigns_students_to_teacher(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.school_token}')
+        url = f'/api/auth/teachers/{self.teacher_profile.id}/assign-students'
+        
+        # Test assigning Student 1
+        payload = {"student_ids": [self.student_profile1.id]}
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['data']['assigned_student_ids'], [self.student_profile1.id])
+
+        # Test listing teacher profile shows assigned students
+        get_url = '/api/auth/teachers'
+        response_list = self.client.get(get_url)
+        self.assertEqual(response_list.status_code, status.HTTP_200_OK)
+        teachers = response_list.data['data']
+        matched = [t for t in teachers if t['id'] == self.teacher_profile.id]
+        self.assertEqual(len(matched), 1)
+        self.assertEqual(len(matched[0]['assigned_students']), 1)
+        self.assertEqual(matched[0]['assigned_students'][0]['id'], self.student_profile1.id)
+
+    def test_teacher_submission_visibility_and_grading(self):
+        # First assign Student 1 to Teacher
+        self.teacher_profile.students.add(self.student_profile1)
+
+        # Authenticate as Teacher
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.teacher_token}')
+
+        # 1. Fetch submissions. The teacher should only see submission 1 (assigned student)
+        submissions_url = '/api/assessments/submissions'
+        response = self.client.get(submissions_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        results = response.data['data']['results']
+        # The teacher should only see submission1 (Student 1) and NOT submission2
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['id'], self.submission1.id)
+
+        # 2. Grade Submission 1 (Should succeed)
+        grade_url1 = f'/api/assessments/submissions/{self.submission1.id}/grade'
+        grade_payload = {"score": 85}
+        response_grade1 = self.client.patch(grade_url1, grade_payload, format='json')
+        self.assertEqual(response_grade1.status_code, status.HTTP_200_OK)
+        self.assertTrue(response_grade1.data['success'])
+        self.assertEqual(response_grade1.data['data']['score'], 85)
+
+        # 3. Grade Submission 2 (Should fail with 403 Forbidden since Student 2 is not assigned)
+        grade_url2 = f'/api/assessments/submissions/{self.submission2.id}/grade'
+        response_grade2 = self.client.patch(grade_url2, grade_payload, format='json')
+        self.assertEqual(response_grade2.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(response_grade2.data['success'])
+        self.assertEqual(response_grade2.data['message'], "You are not authorized to grade this student's submission.")

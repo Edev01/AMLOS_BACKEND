@@ -344,6 +344,7 @@ class TeacherSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(source='user.last_name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     profile_image = serializers.URLField(source='user.profile_image', read_only=True)
+    assigned_students = serializers.SerializerMethodField()
 
     class Meta:
         model = Teacher
@@ -357,8 +358,12 @@ class TeacherSerializer(serializers.ModelSerializer):
             'qualification', 
             'experience_years', 
             'salary', 
-            'hire_date'
+            'hire_date',
+            'assigned_students'
         ]
+
+    def get_assigned_students(self, obj):
+        return [{'id': s.id, 'name': f"{s.user.first_name} {s.user.last_name}".strip() or s.user.email} for s in obj.students.all()]
 
 class UpdateSchoolSerializer(serializers.ModelSerializer):
     profile_image = serializers.URLField(write_only=True, required=False, allow_null=True, allow_blank=True)

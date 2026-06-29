@@ -886,3 +886,41 @@ class UploadProfileImageView(APIView):
             },
             status_code=status.HTTP_200_OK
         )
+
+class AssignStudentsToTeacherView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['SCHOOL']
+
+    def post(self, request, teacher_id):
+        school = request.user.school_profile
+        teacher = get_object_or_404(Teacher, id=teacher_id, school=school)
+        
+        student_ids = request.data.get('student_ids', [])
+        if not isinstance(student_ids, list):
+            return response_builder(
+                success=False,
+                message="student_ids must be a list of student profile IDs.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validate that all students belong to the school
+        students = Student.objects.filter(id__in=student_ids, school=school)
+        if len(students) != len(student_ids):
+            return response_builder(
+                success=False,
+                message="Some student IDs are invalid or do not belong to your school.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Update relationship
+        teacher.students.set(students)
+        
+        return response_builder(
+            success=True,
+            message="Students assigned to teacher successfully.",
+            data={
+                "teacher_id": teacher.id,
+                "assigned_student_ids": list(teacher.students.values_list('id', flat=True))
+            },
+            status_code=status.HTTP_200_OK
+        )

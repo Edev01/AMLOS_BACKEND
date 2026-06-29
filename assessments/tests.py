@@ -167,3 +167,33 @@ class TimedAssessmentTests(APITestCase):
         self.assertEqual(matched[0]['duration_minutes'], 60)
         self.assertIsNotNone(matched[0]['started_at'])
         self.assertTrue(3590 <= matched[0]['time_left_seconds'] <= 3600)
+
+    def test_list_all_assessments_includes_questions(self):
+        # Create a mock Question and link to the assessment model
+        question = Question.objects.create(
+            question_id="Q1",
+            subject="Mathematics",
+            chapter="Chapter 1",
+            question_type="MCQ",
+            cognitive_level="Knowledge",
+            category="Book Exercise",
+            question_text="What is 2 + 2?",
+            answer_text="4",
+            difficulty_level="Easy"
+        )
+        self.assessment.questions.add(question)
+
+        self.set_admin_auth()
+        url = '/api/assessments/models/all'
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        results = response.data['data']['results']
+        matched = [r for r in results if r['id'] == self.assessment.id]
+        self.assertEqual(len(matched), 1)
+
+        # Assert questions are nested and contain correct properties
+        self.assertIn('questions', matched[0])
+        self.assertEqual(len(matched[0]['questions']), 1)
+        self.assertEqual(matched[0]['questions'][0]['question_id'], "Q1")
+        self.assertEqual(matched[0]['questions'][0]['question_text'], "What is 2 + 2?")

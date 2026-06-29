@@ -231,7 +231,6 @@ class AssessmentDetailView(APIView):
 
     def get(self, request, id):
         assessment = get_object_or_404(AssessmentModel, id=id)
-        questions = assessment.questions.all()
         
         attempt = None
         # Verify access for students: they must only access unlocked assessments
@@ -252,10 +251,7 @@ class AssessmentDetailView(APIView):
             )
 
         serializer = AssessmentModelSerializer(assessment)
-        questions_serializer = QuestionSerializer(questions, many=True)
-
         data = serializer.data
-        data['questions'] = questions_serializer.data
 
         if request.user.role == 'STUDENT' and attempt:
             data['started_at'] = attempt.started_at.isoformat()
@@ -457,6 +453,13 @@ class ListStudentSubmissionsView(APIView):
 
     def get(self, request):
         submissions = StudentAssessment.objects.filter(is_completed=True).order_by('-completed_at')
+        
+        if request.user.role == 'SCHOOL' and hasattr(request.user, 'school_profile'):
+            submissions = submissions.filter(student__student_profile__school=request.user.school_profile)
+        elif request.user.role == 'TEACHER' and hasattr(request.user, 'teacher_profile'):
+            assigned_student_users = request.user.teacher_profile.students.values_list('user', flat=True)
+            submissions = submissions.filter(student__in=assigned_student_users)
+
         paginator = AssessmentPagination()
         paginated_submissions = paginator.paginate_queryset(submissions, request)
         serializer = StudentAssessmentSerializer(paginated_submissions, many=True)
@@ -478,6 +481,24 @@ class GradeStudentAssessmentView(APIView):
 
     def patch(self, request, submission_id):
         submission = get_object_or_404(StudentAssessment, id=submission_id)
+        
+        # Verify teacher is authorized to grade this student's submission
+        if request.user.role == 'TEACHER':
+            if hasattr(request.user, 'teacher_profile'):
+                assigned_student_users = request.user.teacher_profile.students.values_list('user', flat=True)
+                if submission.student_id not in assigned_student_users:
+                    return response_builder(
+                        success=False,
+                        message="You are not authorized to grade this student's submission.",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+            else:
+                return response_builder(
+                    success=False,
+                    message="Teacher profile not found.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
         score = request.data.get('score')
         total_marks = request.data.get('total_marks', submission.total_marks)
 

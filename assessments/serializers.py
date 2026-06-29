@@ -10,13 +10,14 @@ class AssessmentModelSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     chapter_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True)
     chapters_details = serializers.SerializerMethodField(read_only=True)
+    questions = QuestionSerializer(many=True, read_only=True)
 
     class Meta:
         model = AssessmentModel
         fields = [
             'id', 'title', 'assessment_type', 'grade', 'subject', 'subject_name',
             'chapter_ids', 'chapters_details', 'cognitive_levels', 'categories',
-            'total_questions', 'mcq_count', 'short_count', 'long_count', 'duration_minutes', 'created_at'
+            'total_questions', 'mcq_count', 'short_count', 'long_count', 'questions', 'duration_minutes', 'created_at'
         ]
 
     def get_chapters_details(self, obj):

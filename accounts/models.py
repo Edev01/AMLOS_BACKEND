@@ -130,6 +130,7 @@ class Teacher(models.Model):
 
     salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     hire_date = models.DateField(auto_now_add=True)
+    students = models.ManyToManyField(Student, related_name='assigned_teachers', blank=True)
 
     class Meta:
         db_table = "teachers"

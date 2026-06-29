@@ -23,4 +23,5 @@ urlpatterns = [
     path('users', UserListSearchView.as_view()),
     path('users/<int:user_id>/role', UpdateUserRoleView.as_view()),
     path('upload-image', UploadProfileImageView.as_view(), name='upload-image'),
+    path('teachers/<int:teacher_id>/assign-students', AssignStudentsToTeacherView.as_view(), name='assign-students-to-teacher'),
 ]
