@@ -32,8 +32,9 @@ class AssessmentModelSerializer(serializers.ModelSerializer):
 class StudentAssessmentSerializer(serializers.ModelSerializer):
     assessment_title = serializers.CharField(source='assessment_model.title', read_only=True)
     assessment_type = serializers.CharField(source='assessment_model.assessment_type', read_only=True)
+    questions = QuestionSerializer(source='assessment_model.questions', many=True, read_only=True)
 
     class Meta:
         model = StudentAssessment
-        fields = ['id', 'student', 'assessment_model', 'assessment_title', 'assessment_type', 'score', 'total_marks', 'is_completed', 'started_at', 'completed_at', 'submission_file']
+        fields = ['id', 'student', 'assessment_model', 'assessment_title', 'assessment_type', 'score', 'total_marks', 'is_completed', 'started_at', 'completed_at', 'submission_file', 'questions']
         read_only_fields = ['student', 'started_at', 'completed_at']
