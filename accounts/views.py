@@ -924,3 +924,84 @@ class AssignStudentsToTeacherView(APIView):
             },
             status_code=status.HTTP_200_OK
         )
+
+class ResetUserPasswordByRoleView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN', 'SCHOOL']
+
+    def post(self, request):
+        serializer = ResetPasswordByRoleSerializer(data=request.data)
+        if not serializer.is_valid():
+            return response_builder(
+                success=False,
+                message="Invalid request data.",
+                data=serializer.errors,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user_id = serializer.validated_data['user_id']
+        new_password = serializer.validated_data['new_password']
+        target_role = serializer.validated_data['role']
+        
+        user = get_object_or_404(User, id=user_id)
+        
+        role_map = {
+            'SCHOOL': User.Role.SCHOOL,
+            'TEACHER': User.Role.TEACHER,
+            'STUDENT': User.Role.STUDENT
+        }
+        if user.role != role_map[target_role]:
+            return response_builder(
+                success=False,
+                message=f"Target user does not have the role {target_role}.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+            
+        if target_role == 'SCHOOL':
+            if request.user.role != 'ADMIN':
+                return response_builder(
+                    success=False,
+                    message="Only administrators can reset a school's password.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+        elif target_role in ['TEACHER', 'STUDENT']:
+            if request.user.role != 'SCHOOL':
+                return response_builder(
+                    success=False,
+                    message="Only schools can reset teacher or student passwords.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            school_profile = getattr(request.user, 'school_profile', None)
+            if not school_profile:
+                return response_builder(
+                    success=False,
+                    message="School profile not found for the requesting user.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+            
+            if target_role == 'TEACHER':
+                teacher_profile = getattr(user, 'teacher_profile', None)
+                if not teacher_profile or teacher_profile.school != school_profile:
+                    return response_builder(
+                        success=False,
+                        message="This teacher does not belong to your school.",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+            elif target_role == 'STUDENT':
+                student_profile = getattr(user, 'student_profile', None)
+                if not student_profile or student_profile.school != school_profile:
+                    return response_builder(
+                        success=False,
+                        message="This student does not belong to your school.",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+                    
+        user.set_password(new_password)
+        user.save()
+        
+        return response_builder(
+            success=True,
+            message=f"Password for {target_role} user reset successfully.",
+            status_code=status.HTTP_200_OK
+        )

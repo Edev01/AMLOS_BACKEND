@@ -24,4 +24,5 @@ urlpatterns = [
     path('users/<int:user_id>/role', UpdateUserRoleView.as_view()),
     path('upload-image', UploadProfileImageView.as_view(), name='upload-image'),
     path('teachers/<int:teacher_id>/assign-students', AssignStudentsToTeacherView.as_view(), name='assign-students-to-teacher'),
+    path('reset-password-by-role', ResetUserPasswordByRoleView.as_view(), name='reset-password-by-role'),
 ]

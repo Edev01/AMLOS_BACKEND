@@ -391,3 +391,8 @@ class UserRoleManagementSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'role', 'profile_image']
+
+class ResetPasswordByRoleSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField(required=True)
+    new_password = serializers.CharField(required=True, min_length=6)
+    role = serializers.ChoiceField(choices=['SCHOOL', 'TEACHER', 'STUDENT'], required=True)

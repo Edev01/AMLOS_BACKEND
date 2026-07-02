@@ -289,3 +289,164 @@ class TeacherStudentAssignmentTests(APITestCase):
         self.assertEqual(response_grade2.status_code, status.HTTP_403_FORBIDDEN)
         self.assertFalse(response_grade2.data['success'])
         self.assertEqual(response_grade2.data['message'], "You are not authorized to grade this student's submission.")
+
+
+class ResetPasswordByRoleTests(APITestCase):
+
+    def setUp(self):
+        # Create Admin
+        self.admin_user = User.objects.create_user(
+            email='admin@amlos.com',
+            username='admin',
+            password='password123',
+            role=User.Role.ADMIN
+        )
+
+        # Create School
+        self.school_user = User.objects.create_user(
+            email='school@amlos.com',
+            username='school',
+            password='password123',
+            role=User.Role.SCHOOL
+        )
+        self.school_profile = School.objects.create(
+            user=self.school_user,
+            school_name="Main School",
+            registration_number="REG-MAIN-PW",
+            address="123 Road",
+            principal_name="Principal Main"
+        )
+
+        # Create Teacher belonging to school
+        self.teacher_user = User.objects.create_user(
+            email='teacher@amlos.com',
+            username='teacher',
+            password='password123',
+            role=User.Role.TEACHER
+        )
+        self.teacher_profile = Teacher.objects.create(
+            user=self.teacher_user,
+            school=self.school_profile,
+            subject="Science",
+            qualification="M.Sc"
+        )
+
+        # Create Student belonging to school
+        self.student_user = User.objects.create_user(
+            email='student@amlos.com',
+            username='student',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.student_profile = Student.objects.create(
+            user=self.student_user,
+            school=self.school_profile,
+            roll_number="STUD-PW",
+            grade="Grade 10"
+        )
+
+        # Create another school and a teacher from that school (to test cross-school boundaries)
+        self.other_school_user = User.objects.create_user(
+            email='school2@amlos.com',
+            username='school2',
+            password='password123',
+            role=User.Role.SCHOOL
+        )
+        self.other_school_profile = School.objects.create(
+            user=self.other_school_user,
+            school_name="Other School",
+            registration_number="REG-OTHER-PW",
+            address="456 Road",
+            principal_name="Principal Other"
+        )
+        self.other_teacher_user = User.objects.create_user(
+            email='otherteacher@amlos.com',
+            username='otherteacher',
+            password='password123',
+            role=User.Role.TEACHER
+        )
+        self.other_teacher_profile = Teacher.objects.create(
+            user=self.other_teacher_user,
+            school=self.other_school_profile,
+            subject="History",
+            qualification="B.A"
+        )
+
+        # Access Tokens
+        self.admin_token = str(AccessToken.for_user(self.admin_user))
+        self.school_token = str(AccessToken.for_user(self.school_user))
+        self.teacher_token = str(AccessToken.for_user(self.teacher_user))
+
+    def test_admin_resets_school_password_success(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        url = '/api/auth/reset-password-by-role'
+        payload = {
+            "user_id": self.school_user.id,
+            "new_password": "new_school_password_123",
+            "role": "SCHOOL"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['message'], "Password for SCHOOL user reset successfully.")
+
+        # Try to authenticate/login with new password
+        login_response = self.client.post('/api/auth/login', {
+            "email": "school@amlos.com",
+            "password": "new_school_password_123"
+        }, format='json')
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+    def test_school_resets_school_password_forbidden(self):
+        # A School trying to reset their own or another school's password via this endpoint should be forbidden
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.school_token}')
+        url = '/api/auth/reset-password-by-role'
+        payload = {
+            "user_id": self.school_user.id,
+            "new_password": "unauthorized_reset_123",
+            "role": "SCHOOL"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_school_resets_teacher_password_success(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.school_token}')
+        url = '/api/auth/reset-password-by-role'
+        payload = {
+            "user_id": self.teacher_user.id,
+            "new_password": "new_teacher_pass_123",
+            "role": "TEACHER"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        # Authenticate with new password
+        login_response = self.client.post('/api/auth/login', {
+            "email": "teacher@amlos.com",
+            "password": "new_teacher_pass_123"
+        }, format='json')
+        self.assertEqual(login_response.status_code, status.HTTP_200_OK)
+
+    def test_school_resets_other_teacher_password_forbidden(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.school_token}')
+        url = '/api/auth/reset-password-by-role'
+        payload = {
+            "user_id": self.other_teacher_user.id,
+            "new_password": "unauthorized_teacher_pass",
+            "role": "TEACHER"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertFalse(response.data['success'])
+        self.assertEqual(response.data['message'], "This teacher does not belong to your school.")
+
+    def test_teacher_resets_password_forbidden(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.teacher_token}')
+        url = '/api/auth/reset-password-by-role'
+        payload = {
+            "user_id": self.student_user.id,
+            "new_password": "teacher_unauthorized",
+            "role": "STUDENT"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
