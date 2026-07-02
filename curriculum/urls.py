@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (CreateSubjectView, CreateChapterView, CreateSLOView, ListSubjectsView, ListChaptersView, BulkUploadCurriculumView,
                     CreateGradeView, ListGradesView, UpdateGradeView, DeleteGradeView,
-                    UpdateSubjectView, DeleteSubjectView, UpdateChapterView, DeleteChapterView, UpdateSLOView, DeleteSLOView)
+                    UpdateSubjectView, DeleteSubjectView, UpdateChapterView, DeleteChapterView, UpdateSLOView, DeleteSLOView, ResetAcademicDataView)
 
 urlpatterns = [
     path('subjects/create', CreateSubjectView.as_view()),
@@ -20,4 +20,5 @@ urlpatterns = [
     path('chapters/<int:chapter_id>/delete', DeleteChapterView.as_view()),
     path('slos/<int:slo_id>/update', UpdateSLOView.as_view()),
     path('slos/<int:slo_id>/delete', DeleteSLOView.as_view()),
+    path('reset-academic-data', ResetAcademicDataView.as_view(), name='reset-academic-data'),
 ]

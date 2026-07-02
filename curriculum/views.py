@@ -391,3 +391,48 @@ class DeleteSLOView(APIView):
             data=None,
             status_code=status.HTTP_200_OK
         )
+
+class ResetAcademicDataView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def post(self, request):
+        password = request.data.get('password')
+        if not password:
+            return response_builder(
+                success=False,
+                message="password parameter is required.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify admin's password
+        if not request.user.check_password(password):
+            return response_builder(
+                success=False,
+                message="Invalid password verification.",
+                status_code=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Local imports to prevent circular imports
+        from study_plans.models import StudyPlan, StudyPlanSLO
+        from assessments.models import AssessmentModel, Question, StudentAssessment
+
+        # Clear data in dependency order to prevent constraint violation errors
+        StudyPlanSLO.objects.all().delete()
+        StudyPlan.objects.all().delete()
+        
+        StudentAssessment.objects.all().delete()
+        Question.objects.all().delete()
+        AssessmentModel.objects.all().delete()
+        
+        SLO.objects.all().delete()
+        Chapter.objects.all().delete()
+        Subject.objects.all().delete()
+        Grade.objects.all().delete()
+        CurriculumBulkUpload.objects.all().delete()
+
+        return response_builder(
+            success=True,
+            message="All academic data cleared successfully.",
+            status_code=status.HTTP_200_OK
+        )
