@@ -36,12 +36,41 @@ class CreateAssessmentModelView(APIView):
     def post(self, request):
         serializer = AssessmentModelSerializer(data=request.data)
         if serializer.is_valid():
+            cognitive_level_details = serializer.validated_data.get('cognitive_level_details')
+            cognitive_levels = serializer.validated_data.get('cognitive_levels', [])
+
+            if cognitive_level_details:
+                # Validate details dict keys
+                for level in cognitive_level_details.keys():
+                    if level not in cognitive_levels:
+                        return response_builder(
+                            success=False,
+                            message=f"Cognitive level '{level}' in cognitive_level_details is not in cognitive_levels list.",
+                            status_code=status.HTTP_400_BAD_REQUEST
+                        )
+
+                # Compute sums
+                computed_mcq = 0
+                computed_short = 0
+                computed_long = 0
+                
+                for level in cognitive_levels:
+                    level_detail = cognitive_level_details.get(level, {})
+                    computed_mcq += int(level_detail.get('mcq_count', 0))
+                    computed_short += int(level_detail.get('short_count', 0))
+                    computed_long += int(level_detail.get('long_count', 0))
+
+                serializer.validated_data['mcq_count'] = computed_mcq
+                serializer.validated_data['short_count'] = computed_short
+                serializer.validated_data['long_count'] = computed_long
+                serializer.validated_data['total_questions'] = computed_mcq + computed_short + computed_long
+
             mcq_count = serializer.validated_data.get('mcq_count', 0)
             short_count = serializer.validated_data.get('short_count', 0)
             long_count = serializer.validated_data.get('long_count', 0)
             total_questions = serializer.validated_data.get('total_questions')
 
-            if mcq_count + short_count + long_count != total_questions:
+            if total_questions is None or mcq_count + short_count + long_count != total_questions:
                 return response_builder(
                     success=False,
                     message="Sum of MCQ, Short, and Long question counts must equal total_questions.",
@@ -63,33 +92,56 @@ class CreateAssessmentModelView(APIView):
                     pass
 
             q_subject = map_subject_name_to_question_subject(subject.name)
-
-            # Query candidate questions
-            questions_query = Question.objects.filter(
-                subject=q_subject,
-                chapter__in=question_chapters
-            )
-
-            cognitive_levels = assessment.cognitive_levels
-            if cognitive_levels:
-                questions_query = questions_query.filter(cognitive_level__in=cognitive_levels)
-
             categories = assessment.categories
-            if categories:
-                questions_query = questions_query.filter(category__in=categories)
-
-            # Separate by type
-            mcqs = list(questions_query.filter(question_type='MCQ'))
-            shorts = list(questions_query.filter(question_type='SHORT'))
-            longs = list(questions_query.filter(question_type='LONG'))
 
             selected = []
-            if mcq_count > 0:
-                selected.extend(random.sample(mcqs, min(len(mcqs), mcq_count)))
-            if short_count > 0:
-                selected.extend(random.sample(shorts, min(len(shorts), short_count)))
-            if long_count > 0:
-                selected.extend(random.sample(longs, min(len(longs), long_count)))
+            if cognitive_level_details:
+                base_query = Question.objects.filter(
+                    subject=q_subject,
+                    chapter__in=question_chapters
+                )
+                if categories:
+                    base_query = base_query.filter(category__in=categories)
+
+                for level in cognitive_levels:
+                    level_detail = cognitive_level_details.get(level, {})
+                    l_mcq = int(level_detail.get('mcq_count', 0))
+                    l_short = int(level_detail.get('short_count', 0))
+                    l_long = int(level_detail.get('long_count', 0))
+
+                    level_query = base_query.filter(cognitive_level=level)
+
+                    if l_mcq > 0:
+                        level_mcqs = list(level_query.filter(question_type='MCQ'))
+                        selected.extend(random.sample(level_mcqs, min(len(level_mcqs), l_mcq)))
+                    if l_short > 0:
+                        level_shorts = list(level_query.filter(question_type='SHORT'))
+                        selected.extend(random.sample(level_shorts, min(len(level_shorts), l_short)))
+                    if l_long > 0:
+                        level_longs = list(level_query.filter(question_type='LONG'))
+                        selected.extend(random.sample(level_longs, min(len(level_longs), l_long)))
+            else:
+                # Query candidate questions
+                questions_query = Question.objects.filter(
+                    subject=q_subject,
+                    chapter__in=question_chapters
+                )
+                if cognitive_levels:
+                    questions_query = questions_query.filter(cognitive_level__in=cognitive_levels)
+                if categories:
+                    questions_query = questions_query.filter(category__in=categories)
+
+                # Separate by type
+                mcqs = list(questions_query.filter(question_type='MCQ'))
+                shorts = list(questions_query.filter(question_type='SHORT'))
+                longs = list(questions_query.filter(question_type='LONG'))
+
+                if mcq_count > 0:
+                    selected.extend(random.sample(mcqs, min(len(mcqs), mcq_count)))
+                if short_count > 0:
+                    selected.extend(random.sample(shorts, min(len(shorts), short_count)))
+                if long_count > 0:
+                    selected.extend(random.sample(longs, min(len(longs), long_count)))
 
             assessment.questions.set(selected)
 

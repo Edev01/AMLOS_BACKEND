@@ -197,3 +197,65 @@ class TimedAssessmentTests(APITestCase):
         self.assertEqual(len(matched[0]['questions']), 1)
         self.assertEqual(matched[0]['questions'][0]['question_id'], "Q1")
         self.assertEqual(matched[0]['questions'][0]['question_text'], "What is 2 + 2?")
+
+    def test_create_assessment_with_cognitive_level_details(self):
+        # Create candidate questions of different cognitive levels
+        q1 = Question.objects.create(
+            question_id="Q101",
+            subject="Mathematics",
+            chapter="Chapter 1",
+            question_type="MCQ",
+            cognitive_level="Knowledge",
+            question_text="Q101 Text",
+            answer_text="Ans",
+            difficulty_level="Easy"
+        )
+        q2 = Question.objects.create(
+            question_id="Q102",
+            subject="Mathematics",
+            chapter="Chapter 1",
+            question_type="SHORT",
+            cognitive_level="Understanding",
+            question_text="Q102 Text",
+            answer_text="Ans",
+            difficulty_level="Medium"
+        )
+
+        self.set_admin_auth()
+        url = '/api/assessments/models'
+        payload = {
+            "title": "Detailed Quiz",
+            "assessment_type": "CHAPTER_WISE",
+            "grade": "Grade 10",
+            "subject": self.subject.id,
+            "chapter_ids": [self.chapter.id],
+            "cognitive_levels": ["Knowledge", "Understanding"],
+            "cognitive_level_details": {
+                "Knowledge": {
+                    "mcq_count": 1,
+                    "short_count": 0,
+                    "long_count": 0
+                },
+                "Understanding": {
+                    "mcq_count": 0,
+                    "short_count": 1,
+                    "long_count": 0
+                }
+            }
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+
+        # Verify computed fields and selected questions
+        data = response.data['data']
+        self.assertEqual(data['mcq_count'], 1)
+        self.assertEqual(data['short_count'], 1)
+        self.assertEqual(data['long_count'], 0)
+        self.assertEqual(data['total_questions'], 2)
+        self.assertEqual(len(data['questions']), 2)
+        
+        # Verify specific questions selected
+        q_ids = [q['question_id'] for q in data['questions']]
+        self.assertIn("Q101", q_ids)
+        self.assertIn("Q102", q_ids)

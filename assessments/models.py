@@ -46,6 +46,7 @@ class AssessmentModel(models.Model):
     subject = models.ForeignKey(Subject, on_delete=models.CASCADE, related_name='assessments')
     chapters = models.ManyToManyField(Chapter, related_name='assessments')
     cognitive_levels = models.JSONField(default=list) # e.g. ["Knowledge", "Understanding"]
+    cognitive_level_details = models.JSONField(default=dict, blank=True, null=True)
     categories = models.JSONField(default=list) # e.g. ["Conceptual", "Past Paper"]
     total_questions = models.IntegerField()
     mcq_count = models.IntegerField(default=0)
