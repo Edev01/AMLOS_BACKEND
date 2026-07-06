@@ -77,7 +77,7 @@ class CreateSchoolSerializer(serializers.Serializer):
     
     # School fields
     school_name = serializers.CharField(max_length=255)
-    registration_number = serializers.CharField(max_length=100)
+    registration_number = serializers.CharField(max_length=100, required=False, allow_blank=True, allow_null=True)
     address = serializers.CharField()
     website = serializers.URLField(required=False, allow_blank=True)
     established_year = serializers.IntegerField(required=False)
@@ -94,8 +94,9 @@ class CreateSchoolSerializer(serializers.Serializer):
         return value
 
     def validate_registration_number(self, value):
-        if School.objects.filter(registration_number=value).exists():
-            raise serializers.ValidationError("Registration number already exists.")
+        if value:
+            if School.objects.filter(registration_number=value).exists():
+                raise serializers.ValidationError("Registration number already exists.")
         return value
 
     def create(self, validated_data):
@@ -113,10 +114,20 @@ class CreateSchoolSerializer(serializers.Serializer):
                 created_by=self.context['request'].user
             )
 
+            registration_number = validated_data.get('registration_number')
+            if not registration_number:
+                import random
+                import string
+                while True:
+                    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                    registration_number = f"REG-{code}"
+                    if not School.objects.filter(registration_number=registration_number).exists():
+                        break
+
             school = School.objects.create(
                 user=user,
                 school_name=validated_data['school_name'],
-                registration_number=validated_data['registration_number'],
+                registration_number=registration_number,
                 address=validated_data['address'],
                 website=validated_data.get('website', ''),
                 established_year=validated_data.get('established_year', None),
@@ -219,10 +230,14 @@ class SchoolSerializer(serializers.ModelSerializer):
     teachers = serializers.SerializerMethodField()
     email = serializers.EmailField(source='user.email', read_only=True)
     profile_image = serializers.URLField(source='user.profile_image', read_only=True)
+    created_at = serializers.DateTimeField(source='user.created_at', read_only=True)
 
     class Meta:
         model = School
-        fields = '__all__'
+        fields = [
+            'id', 'school_name', 'registration_number', 'address', 'website', 
+            'established_year', 'principal_name', 'teachers', 'email', 'profile_image', 'created_at'
+        ]
         read_only_fields = ('user',)
         
     def get_teachers(self, obj):
