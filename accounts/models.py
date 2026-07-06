@@ -70,6 +70,7 @@ class School(models.Model):
 
     established_year = models.IntegerField(null=True, blank=True)
     principal_name = models.CharField(max_length=255,null =True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
 
     class Meta:
         db_table = "schools"

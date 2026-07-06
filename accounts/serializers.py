@@ -82,6 +82,7 @@ class CreateSchoolSerializer(serializers.Serializer):
     website = serializers.URLField(required=False, allow_blank=True)
     established_year = serializers.IntegerField(required=False)
     principal_name = serializers.CharField(max_length=255)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -131,7 +132,8 @@ class CreateSchoolSerializer(serializers.Serializer):
                 address=validated_data['address'],
                 website=validated_data.get('website', ''),
                 established_year=validated_data.get('established_year', None),
-                principal_name=validated_data['principal_name'] 
+                principal_name=validated_data['principal_name'],
+                phone=validated_data.get('phone', '')
             )
 
             return school
@@ -235,7 +237,7 @@ class SchoolSerializer(serializers.ModelSerializer):
     class Meta:
         model = School
         fields = [
-            'id', 'school_name', 'registration_number', 'address', 'website', 
+            'id', 'school_name', 'registration_number', 'phone', 'address', 'website', 
             'established_year', 'principal_name', 'teachers', 'email', 'profile_image', 'created_at'
         ]
         read_only_fields = ('user',)
@@ -388,6 +390,7 @@ class UpdateSchoolSerializer(serializers.ModelSerializer):
         fields = [
             'school_name',
             'registration_number',
+            'phone',
             'address',
             'website',
             'established_year',

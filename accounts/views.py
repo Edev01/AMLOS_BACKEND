@@ -135,16 +135,7 @@ class CreateSchoolView(APIView):
             school = serializer.save()
 
             data = {
-                "school": {
-                    "id": school.id,
-                    "school_name": school.school_name,
-                    "registration_number": school.registration_number,
-                    "address": school.address,
-                    "website": school.website,
-                    "established_year": school.established_year,
-                    "principal_name": school.principal_name,
-                    "profile_image": school.user.profile_image
-                }
+                "school": SchoolSerializer(school).data
             }
 
             return response_builder(
