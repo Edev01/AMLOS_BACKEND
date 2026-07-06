@@ -12,7 +12,10 @@ class SubjectSerializer(serializers.ModelSerializer):
 class SLOSerializer(serializers.ModelSerializer):
     class Meta:
         model = SLO
-        fields = ['id', 'chapter', 'name', 'difficulty_frequency', 'estimated_time', 'created_at']
+        fields = [
+            'id', 'chapter', 'slo_no', 'name', 'difficulty_frequency', 'estimated_time',
+            'form_of_assessment', 'remarks', 'google_drive_link', 'google_site', 'priority_score', 'created_at'
+        ]
 
 class ChapterSerializer(serializers.ModelSerializer):
     slos = SLOSerializer(many=True, read_only=True)
