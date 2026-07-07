@@ -2,7 +2,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from accounts.models import User, School, Student, Teacher
+from accounts.models import User, School, Student, Teacher, PaperCheckerProfile, PaperCheckerAssignment
 from django.db import transaction
 # Admin signup serializer.
 from rest_framework import serializers
@@ -413,4 +413,45 @@ class UserRoleManagementSerializer(serializers.ModelSerializer):
 class ResetPasswordByRoleSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
     new_password = serializers.CharField(required=True, min_length=6)
-    role = serializers.ChoiceField(choices=['SCHOOL', 'TEACHER', 'STUDENT'], required=True)
+    role = serializers.ChoiceField(choices=['SCHOOL', 'TEACHER', 'STUDENT', 'PAPER_CHECKER'], required=True)
+
+class CreatePaperCheckerSerializer(serializers.Serializer):
+    username = serializers.CharField(max_length=150)
+    password = serializers.CharField(write_only=True, min_length=6)
+    email = serializers.EmailField()
+    profile_image = serializers.URLField(required=False, allow_null=True, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("Email already exists.")
+        return value
+
+    def create(self, validated_data):
+        from django.db import transaction
+        with transaction.atomic():
+            user = User.objects.create_user(
+                username=validated_data['email'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                role=User.Role.PAPER_CHECKER,
+                profile_image=validated_data.get('profile_image'),
+                phone=validated_data.get('phone'),
+                created_by=self.context['request'].user
+            )
+            profile = PaperCheckerProfile.objects.create(user=user)
+            return profile
+
+class PaperCheckerSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField(source='user.email', read_only=True)
+    profile_image = serializers.URLField(source='user.profile_image', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+
+    class Meta:
+        model = PaperCheckerProfile
+        fields = ['id', 'email', 'profile_image', 'phone']

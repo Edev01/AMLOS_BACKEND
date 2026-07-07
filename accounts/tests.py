@@ -485,3 +485,129 @@ class ResetPasswordByRoleTests(APITestCase):
         }
         response = self.client.post(url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+from curriculum.models import Subject
+from accounts.models import PaperCheckerProfile, PaperCheckerAssignment, Student, Teacher, School
+from assessments.models import AssessmentModel, StudentAssessment
+
+class PaperCheckerTests(APITestCase):
+
+    def setUp(self):
+        self.admin_user = User.objects.create_user(
+            email='admin@amlos.com',
+            username='admin',
+            password='password123',
+            role=User.Role.ADMIN
+        )
+        self.school_user = User.objects.create_user(
+            email='school@amlos.com',
+            username='school',
+            password='password123',
+            role=User.Role.SCHOOL
+        )
+        self.school = School.objects.create(
+            user=self.school_user,
+            school_name="Main School",
+            registration_number="REG-MAIN",
+            address="123 Road"
+        )
+        self.student_user = User.objects.create_user(
+            email='student@amlos.com',
+            username='student',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.student = Student.objects.create(
+            user=self.student_user,
+            school=self.school,
+            roll_number="S1"
+        )
+        self.teacher_user = User.objects.create_user(
+            email='teacher@amlos.com',
+            username='teacher',
+            password='password123',
+            role=User.Role.TEACHER
+        )
+        self.teacher = Teacher.objects.create(
+            user=self.teacher_user,
+            school=self.school,
+            subject="Mathematics"
+        )
+        self.teacher.students.add(self.student)
+        
+        self.subject = Subject.objects.create(
+            name="Mathematics",
+            description="Math Desc",
+            grade="Grade 9"
+        )
+        self.assessment = AssessmentModel.objects.create(
+            title="Algebra Assessment",
+            assessment_type="CHAPTER_WISE",
+            grade="Grade 9",
+            subject=self.subject,
+            total_questions=0
+        )
+        self.submission = StudentAssessment.objects.create(
+            student=self.student_user,
+            assessment_model=self.assessment,
+            is_completed=True,
+            score=0,
+            total_marks=10
+        )
+        
+        self.admin_token = str(AccessToken.for_user(self.admin_user))
+        self.teacher_token = str(AccessToken.for_user(self.teacher_user))
+
+    def test_create_and_assign_paper_checker(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        
+        # 1. Create Paper Checker
+        url = '/api/auth/paper-checkers/create'
+        payload = {
+            "username": "checker@amlos.com",
+            "password": "password123",
+            "email": "checker@amlos.com"
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        checker_id = response.data['data']['paper_checker']['id']
+        
+        # 2. Assign Subject and Student to Checker
+        assign_url = f'/api/auth/paper-checkers/{checker_id}/assign'
+        assign_payload = {
+            "subject_id": self.subject.id,
+            "student_ids": [self.student.id]
+        }
+        assign_response = self.client.post(assign_url, assign_payload, format='json')
+        self.assertEqual(assign_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(assign_response.data['data']['student_ids'], [self.student.id])
+
+        # 3. Test Teacher submissions listing excludes this submission
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.teacher_token}')
+        sub_list_response = self.client.get('/api/assessments/submissions')
+        self.assertEqual(sub_list_response.status_code, status.HTTP_200_OK)
+        # Should be empty since student submission for this subject is routed to the paper checker
+        self.assertEqual(len(sub_list_response.data['data']['results']), 0)
+
+        # 4. Test Teacher grading is Forbidden
+        grade_url = f'/api/assessments/submissions/{self.submission.id}/grade'
+        grade_response = self.client.patch(grade_url, {"score": 8}, format='json')
+        self.assertEqual(grade_response.status_code, status.HTTP_403_FORBIDDEN)
+
+        # 5. Test Paper Checker submissions listing and grading
+        checker_user = User.objects.get(email="checker@amlos.com")
+        checker_token = str(AccessToken.for_user(checker_user))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {checker_token}')
+        
+        checker_sub_list = self.client.get('/api/assessments/submissions')
+        self.assertEqual(checker_sub_list.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(checker_sub_list.data['data']['results']), 1)
+        self.assertEqual(checker_sub_list.data['data']['results'][0]['id'], self.submission.id)
+
+        # Grade the paper as checker
+        checker_grade = self.client.patch(grade_url, {"score": 9}, format='json')
+        self.assertEqual(checker_grade.status_code, status.HTTP_200_OK)
+        self.submission.refresh_from_db()
+        self.assertEqual(self.submission.score, 9)
+

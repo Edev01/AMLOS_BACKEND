@@ -492,6 +492,7 @@ class SelectRecommendedPlanView(APIView):
             end_date=template_plan.end_date,
             min_study_time_daily=template_plan.min_study_time_daily,
             max_study_time_daily=template_plan.max_study_time_daily,
+            study_time_daily=template_plan.study_time_daily,
             custom_pattern=template_plan.custom_pattern,
             subject_order=template_plan.subject_order,
             total_slo_time=template_plan.total_slo_time,

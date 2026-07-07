@@ -14,6 +14,9 @@ from study_plans.models import StudyPlan, StudyPlanSLO
 from .models import Question, AssessmentModel, StudentAssessment
 from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer
 
+from django.db.models import Q
+from accounts.models import PaperCheckerAssignment
+
 from rest_framework.pagination import PageNumberPagination
 
 class AssessmentPagination(PageNumberPagination):
@@ -501,7 +504,7 @@ class SubmitHandwrittenAssessmentView(APIView):
 
 class ListStudentSubmissionsView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['ADMIN', 'SCHOOL', 'TEACHER']
+    allowed_roles = ['ADMIN', 'SCHOOL', 'TEACHER', 'PAPER_CHECKER']
 
     def get(self, request):
         submissions = StudentAssessment.objects.filter(is_completed=True).order_by('-completed_at')
@@ -511,6 +514,27 @@ class ListStudentSubmissionsView(APIView):
         elif request.user.role == 'TEACHER' and hasattr(request.user, 'teacher_profile'):
             assigned_student_users = request.user.teacher_profile.students.values_list('user', flat=True)
             submissions = submissions.filter(student__in=assigned_student_users)
+            
+            # Exclude submissions assigned to paper checkers for the subject
+            checker_assignments = PaperCheckerAssignment.objects.values_list('students__user_id', 'subject_id')
+            q_exclude = Q()
+            for student_user_id, subject_id in checker_assignments:
+                if student_user_id and subject_id:
+                    q_exclude |= Q(student_id=student_user_id, assessment_model__subject_id=subject_id)
+            if q_exclude:
+                submissions = submissions.exclude(q_exclude)
+                
+        elif request.user.role == 'PAPER_CHECKER' and hasattr(request.user, 'paper_checker_profile'):
+            profile = request.user.paper_checker_profile
+            assignments = profile.assignments.all()
+            q_filter = Q()
+            for assignment in assignments:
+                assigned_student_user_ids = assignment.students.values_list('user_id', flat=True)
+                q_filter |= Q(assessment_model__subject=assignment.subject, student_id__in=assigned_student_user_ids)
+            if q_filter:
+                submissions = submissions.filter(q_filter)
+            else:
+                submissions = submissions.none()
 
         paginator = AssessmentPagination()
         paginated_submissions = paginator.paginate_queryset(submissions, request)
@@ -529,12 +553,12 @@ class ListStudentSubmissionsView(APIView):
 
 class GradeStudentAssessmentView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['TEACHER']
+    allowed_roles = ['TEACHER', 'PAPER_CHECKER']
 
     def patch(self, request, submission_id):
         submission = get_object_or_404(StudentAssessment, id=submission_id)
         
-        # Verify teacher is authorized to grade this student's submission
+        # Verify permissions
         if request.user.role == 'TEACHER':
             if hasattr(request.user, 'teacher_profile'):
                 assigned_student_users = request.user.teacher_profile.students.values_list('user', flat=True)
@@ -544,10 +568,40 @@ class GradeStudentAssessmentView(APIView):
                         message="You are not authorized to grade this student's submission.",
                         status_code=status.HTTP_403_FORBIDDEN
                     )
+                # Check if this student/subject submission is assigned to a paper checker
+                subject = submission.assessment_model.subject
+                student_profile = getattr(submission.student, 'student_profile', None)
+                if student_profile and PaperCheckerAssignment.objects.filter(subject=subject, students=student_profile).exists():
+                    return response_builder(
+                        success=False,
+                        message="This submission is assigned to a paper checker and cannot be graded by the teacher.",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
             else:
                 return response_builder(
                     success=False,
                     message="Teacher profile not found.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+        
+        elif request.user.role == 'PAPER_CHECKER':
+            if hasattr(request.user, 'paper_checker_profile'):
+                subject = submission.assessment_model.subject
+                student_profile = getattr(submission.student, 'student_profile', None)
+                if not student_profile or not PaperCheckerAssignment.objects.filter(
+                    paper_checker=request.user.paper_checker_profile,
+                    subject=subject,
+                    students=student_profile
+                ).exists():
+                    return response_builder(
+                        success=False,
+                        message="You are not authorized to grade this submission.",
+                        status_code=status.HTTP_403_FORBIDDEN
+                    )
+            else:
+                return response_builder(
+                    success=False,
+                    message="Paper checker profile not found.",
                     status_code=status.HTTP_403_FORBIDDEN
                 )
 

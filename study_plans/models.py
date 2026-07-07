@@ -28,8 +28,9 @@ class StudyPlan(models.Model):
     end_date = models.DateField()
     
     # New Time Limits
+    study_time_daily = models.IntegerField(default=120)
     min_study_time_daily = models.IntegerField(default=120) 
-    max_study_time_daily = models.IntegerField(default=300) 
+    max_study_time_daily = models.IntegerField(default=120) 
 
     #streak variable
     current_streak = models.IntegerField(default=0)
@@ -53,6 +54,14 @@ class StudyPlan(models.Model):
 
     class Meta:
         db_table = 'study_plans'
+
+    def save(self, *args, **kwargs):
+        if self.study_time_daily:
+            self.min_study_time_daily = self.study_time_daily
+            self.max_study_time_daily = self.study_time_daily
+        elif self.max_study_time_daily:
+            self.study_time_daily = self.max_study_time_daily
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.title

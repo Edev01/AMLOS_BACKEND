@@ -24,6 +24,8 @@ from rest_framework.pagination import PageNumberPagination
 from django.db.models import Q
 
 from study_plans.models import StudyPlan
+from curriculum.models import Subject
+from accounts.models import PaperCheckerProfile, PaperCheckerAssignment
 
 class LoginView(APIView):
     permission_classes = []  
@@ -994,5 +996,66 @@ class ResetUserPasswordByRoleView(APIView):
         return response_builder(
             success=True,
             message=f"Password for {target_role} user reset successfully.",
+            status_code=status.HTTP_200_OK
+        )
+
+class CreatePaperCheckerView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def post(self, request):
+        serializer = CreatePaperCheckerSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            profile = serializer.save()
+            return response_builder(
+                success=True,
+                message="Paper Checker created successfully",
+                data={
+                    "paper_checker": PaperCheckerSerializer(profile).data
+                },
+                status_code=status.HTTP_201_CREATED
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+class AssignSubjectStudentsToCheckerView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def post(self, request, checker_id):
+        profile = get_object_or_404(PaperCheckerProfile, id=checker_id)
+        subject_id = request.data.get('subject_id')
+        student_ids = request.data.get('student_ids', [])
+
+        subject = get_object_or_404(Subject, id=subject_id)
+        
+        # 1. Get or create the assignment for this checker and this subject
+        assignment, created = PaperCheckerAssignment.objects.get_or_create(
+            paper_checker=profile,
+            subject=subject
+        )
+
+        # 2. Before assigning these students to this checker, 
+        # remove these student_ids from any other checker's assignments for this same subject.
+        other_assignments = PaperCheckerAssignment.objects.filter(subject=subject).exclude(id=assignment.id)
+        for other_assign in other_assignments:
+            other_assign.students.remove(*student_ids)
+
+        # 3. Add students to this assignment
+        students = Student.objects.filter(id__in=student_ids)
+        assignment.students.set(students)
+
+        return response_builder(
+            success=True,
+            message="Students assigned to paper checker successfully for this subject.",
+            data={
+                "checker_id": checker_id,
+                "subject_id": subject_id,
+                "student_ids": list(assignment.students.values_list('id', flat=True))
+            },
             status_code=status.HTTP_200_OK
         )

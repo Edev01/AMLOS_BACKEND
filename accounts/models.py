@@ -11,6 +11,7 @@ class User(AbstractUser):
         STUDENT = 'STUDENT', 'Student'
         HR = 'HR', 'HR'
         FINANCE = 'FINANCE', 'Finance'
+        PAPER_CHECKER = 'PAPER_CHECKER', 'Paper Checker'
 
   
     email = models.EmailField(unique=True, db_index=True)
@@ -49,6 +50,7 @@ class User(AbstractUser):
             self.Role.STUDENT: getattr(self, 'student_profile', None),
             self.Role.HR: getattr(self, 'hr_profile', None),
             self.Role.FINANCE: getattr(self, 'finance_profile', None),
+            self.Role.PAPER_CHECKER: getattr(self, 'paper_checker_profile', None),
         }.get(self.role)
 
     def __str__(self):
@@ -179,3 +181,42 @@ class FinanceProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.email} (Finance)"
+
+class PaperCheckerProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='paper_checker_profile'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "paper_checker_profiles"
+
+    def __str__(self):
+        return f"{self.user.email} (Paper Checker)"
+
+class PaperCheckerAssignment(models.Model):
+    paper_checker = models.ForeignKey(
+        PaperCheckerProfile,
+        on_delete=models.CASCADE,
+        related_name='assignments'
+    )
+    subject = models.ForeignKey(
+        'curriculum.Subject',
+        on_delete=models.CASCADE,
+        related_name='paper_checker_assignments'
+    )
+    students = models.ManyToManyField(
+        'accounts.Student',
+        related_name='paper_checker_assignments',
+        blank=True
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "paper_checker_assignments"
+        unique_together = ('paper_checker', 'subject')
+
+    def __str__(self):
+        return f"Checker {self.paper_checker.user.email} - Subject {self.subject.name}"

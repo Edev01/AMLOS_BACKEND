@@ -25,8 +25,9 @@ class StudyPlanEngine:
         self.mode = plan_data.get('mode')
         self.start_date = plan_data.get('start_date')
         self.end_date = plan_data.get('end_date')
-        self.min_study_time_daily = plan_data.get('min_study_time_daily', 120)
-        self.max_study_time_daily = plan_data.get('max_study_time_daily', 300)
+        self.study_time_daily = plan_data.get('study_time_daily', plan_data.get('max_study_time_daily', 120))
+        self.min_study_time_daily = self.study_time_daily
+        self.max_study_time_daily = self.study_time_daily
         self.subject_order = plan_data.get('subject_order', [])
         self.custom_pattern = plan_data.get('custom_pattern', {})
         self.skip_weekends = plan_data.get('skip_weekends', False)
