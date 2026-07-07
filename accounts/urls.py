@@ -25,6 +25,7 @@ urlpatterns = [
     path('upload-image', UploadProfileImageView.as_view(), name='upload-image'),
     path('teachers/<int:teacher_id>/assign-students', AssignStudentsToTeacherView.as_view(), name='assign-students-to-teacher'),
     path('reset-password-by-role', ResetUserPasswordByRoleView.as_view(), name='reset-password-by-role'),
+    path('paper-checkers', ListPaperCheckersView.as_view(), name='list-paper-checkers'),
     path('paper-checkers/create', CreatePaperCheckerView.as_view(), name='create-paper-checker'),
     path('paper-checkers/<int:checker_id>/assign', AssignSubjectStudentsToCheckerView.as_view(), name='assign-paper-checker'),
 ]

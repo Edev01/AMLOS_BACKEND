@@ -1059,3 +1059,17 @@ class AssignSubjectStudentsToCheckerView(APIView):
             },
             status_code=status.HTTP_200_OK
         )
+
+class ListPaperCheckersView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request):
+        checkers = PaperCheckerProfile.objects.all().order_by('id')
+        serializer = PaperCheckerSerializer(checkers, many=True)
+        return response_builder(
+            success=True,
+            message="Paper Checkers fetched successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )

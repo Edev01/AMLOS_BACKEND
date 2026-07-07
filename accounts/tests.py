@@ -573,6 +573,16 @@ class PaperCheckerTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         checker_id = response.data['data']['paper_checker']['id']
         
+        # 1.5 List Paper Checkers and verify created checker is in response
+        list_checkers_url = '/api/auth/paper-checkers'
+        list_checkers_response = self.client.get(list_checkers_url)
+        self.assertEqual(list_checkers_response.status_code, status.HTTP_200_OK)
+        self.assertTrue(list_checkers_response.data['success'])
+        checkers = list_checkers_response.data['data']
+        self.assertEqual(len(checkers), 1)
+        self.assertEqual(checkers[0]['id'], checker_id)
+        self.assertEqual(checkers[0]['email'], "checker@amlos.com")
+        
         # 2. Assign Subject and Student to Checker
         assign_url = f'/api/auth/paper-checkers/{checker_id}/assign'
         assign_payload = {

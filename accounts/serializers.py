@@ -448,10 +448,12 @@ class CreatePaperCheckerSerializer(serializers.Serializer):
             return profile
 
 class PaperCheckerSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='user.first_name', read_only=True)
+    last_name = serializers.CharField(source='user.last_name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     profile_image = serializers.URLField(source='user.profile_image', read_only=True)
     phone = serializers.CharField(source='user.phone', read_only=True)
 
     class Meta:
         model = PaperCheckerProfile
-        fields = ['id', 'email', 'profile_image', 'phone']
+        fields = ['id', 'email', 'first_name', 'last_name', 'profile_image', 'phone']
