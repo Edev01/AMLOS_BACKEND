@@ -621,3 +621,34 @@ class PaperCheckerTests(APITestCase):
         self.submission.refresh_from_db()
         self.assertEqual(self.submission.score, 9)
 
+    def test_duplicate_username_validation(self):
+        school_token = str(AccessToken.for_user(self.school_user))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {school_token}')
+
+        # 1. Attempt to create teacher with existing username (e.g. 'admin')
+        teacher_url = '/api/auth/create-teacher'
+        teacher_payload = {
+            "username": "admin",
+            "password": "password123",
+            "email": "unique_teacher@amlos.com",
+            "subject": "Mathematics"
+        }
+        teacher_response = self.client.post(teacher_url, teacher_payload, format='json')
+        self.assertEqual(teacher_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(teacher_response.data['success'])
+        self.assertIn("Username already exists.", teacher_response.data['message'])
+
+        # 2. Attempt to create student with existing username (e.g. 'admin')
+        student_url = '/api/auth/students/create'
+        student_payload = {
+            "username": "admin",
+            "password": "password123",
+            "email": "unique_student@amlos.com",
+            "roll_number": "S100",
+            "grade": "Grade 9"
+        }
+        student_response = self.client.post(student_url, student_payload, format='json')
+        self.assertEqual(student_response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(student_response.data['success'])
+        self.assertIn("Username already exists.", student_response.data['message'])
+

@@ -168,6 +168,11 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             'guardian_email'
         ]
 
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+        return value
+
     def create(self, validated_data):
         request = self.context.get('request')
         school = request.user.school_profile
@@ -296,6 +301,11 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
             'salary',
             'hire_date'
         ]
+
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("Username already exists.")
+        return value
 
     def create(self, validated_data):
         request = self.context.get('request')
