@@ -65,3 +65,27 @@ class StudyPlanTimeTests(APITestCase):
         self.assertEqual(detail_response.data['data']['study_time_daily'], 150)
         self.assertNotIn('min_study_time_daily', detail_response.data['data'])
         self.assertNotIn('max_study_time_daily', detail_response.data['data'])
+
+    def test_create_study_plan_with_legacy_min_max_study_time_daily(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.student_token}')
+        url = '/api/study-plans/create'
+        payload = {
+            "title": "Legacy Plan",
+            "plan_type": "CUSTOM",
+            "grade": "Grade 10",
+            "mode": "PARALLEL",
+            "start_date": "2026-07-01",
+            "end_date": "2026-07-10",
+            "min_study_time_daily": 120,
+            "max_study_time_daily": 300,
+            "slo_ids": [self.slo.id],
+            "skip_weekends": False
+        }
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+
+        plan = StudyPlan.objects.get(title="Legacy Plan")
+        self.assertEqual(plan.study_time_daily, 300) # Should use max_study_time_daily
+        self.assertEqual(plan.min_study_time_daily, 300)
+        self.assertEqual(plan.max_study_time_daily, 300)

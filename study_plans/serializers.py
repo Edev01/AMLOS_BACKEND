@@ -22,16 +22,23 @@ class CreateStudyPlanSerializer(serializers.ModelSerializer):
         child=serializers.IntegerField(), write_only=True
     )
     study_time_daily = serializers.IntegerField(default=120)
+    min_study_time_daily = serializers.IntegerField(required=False, write_only=True)
+    max_study_time_daily = serializers.IntegerField(required=False, write_only=True)
 
     class Meta:
         model = StudyPlan
         fields = [
             'id', 'title', 'plan_type', 'grade', 'mode', 'start_date', 'end_date', 
-            'study_time_daily', 'custom_pattern', 
+            'study_time_daily', 'min_study_time_daily', 'max_study_time_daily', 'custom_pattern', 
             'subject_order', 'slo_ids', 'skip_weekends'
         ]
 
     def validate(self, data):
+        min_study = data.pop('min_study_time_daily', None)
+        max_study = data.pop('max_study_time_daily', None)
+        if min_study is not None or max_study is not None:
+            data['study_time_daily'] = max_study if max_study is not None else min_study
+
         if data['start_date'] > data['end_date']:
             raise serializers.ValidationError("Start date must be before end date.")
         
