@@ -652,3 +652,59 @@ class PaperCheckerTests(APITestCase):
         self.assertFalse(student_response.data['success'])
         self.assertIn("Username already exists.", student_response.data['message'])
 
+    def test_checker_portion_assignment(self):
+        # Update self.student to have Grade 9
+        self.student.grade = "Grade 9"
+        self.student.save()
+
+        # Create another student in Grade 9
+        student_user2 = User.objects.create_user(
+            email='student2@amlos.com',
+            username='student2',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        student2 = Student.objects.create(
+            user=student_user2,
+            school=self.school,
+            roll_number="S2",
+            grade="Grade 9"
+        )
+        
+        # Create a paper checker
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        url = '/api/auth/paper-checkers/create'
+        payload = {
+            "username": "checker3@amlos.com",
+            "password": "password123",
+            "email": "checker3@amlos.com"
+        }
+        res = self.client.post(url, payload, format='json')
+        checker_id = res.data['data']['paper_checker']['id']
+
+        # 1. Assign portion "half" (1 out of 2 students)
+        assign_url = f'/api/auth/paper-checkers/{checker_id}/assign'
+        assign_payload = {
+            "subject_id": self.subject.id,
+            "portion": "half"
+        }
+        assign_response = self.client.post(assign_url, assign_payload, format='json')
+        self.assertEqual(assign_response.status_code, status.HTTP_200_OK)
+        # S1 has lower ID than S2, so it should assign S1
+        self.assertEqual(len(assign_response.data['data']['student_ids']), 1)
+        self.assertEqual(assign_response.data['data']['student_ids'][0], self.student.id)
+
+        # 2. Assign portion "half" + custom student_ids (which should combine them)
+        assign_payload = {
+            "subject_id": self.subject.id,
+            "portion": "half",
+            "student_ids": [student2.id]
+        }
+        assign_response = self.client.post(assign_url, assign_payload, format='json')
+        self.assertEqual(assign_response.status_code, status.HTTP_200_OK)
+        # Should now assign both S1 (from portion) and S2 (from student_ids)
+        self.assertEqual(len(assign_response.data['data']['student_ids']), 2)
+        self.assertIn(self.student.id, assign_response.data['data']['student_ids'])
+        self.assertIn(student2.id, assign_response.data['data']['student_ids'])
+
+

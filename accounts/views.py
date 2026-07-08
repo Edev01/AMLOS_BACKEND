@@ -1030,9 +1030,32 @@ class AssignSubjectStudentsToCheckerView(APIView):
         profile = get_object_or_404(PaperCheckerProfile, id=checker_id)
         subject_id = request.data.get('subject_id')
         student_ids = request.data.get('student_ids', [])
+        portion = request.data.get('portion', '')
 
         subject = get_object_or_404(Subject, id=subject_id)
         
+        # Get all students for this subject's grade
+        all_students = Student.objects.filter(grade=subject.grade).order_by('id')
+        total_count = all_students.count()
+
+        # Portions selection logic
+        portion_students = []
+        if portion:
+            portion_lower = portion.lower()
+            if portion_lower == 'full':
+                portion_students = list(all_students)
+            elif portion_lower == 'half':
+                half_count = max(1, total_count // 2) if total_count > 0 else 0
+                portion_students = list(all_students[:half_count])
+            elif portion_lower == 'quarter':
+                quarter_count = max(1, total_count // 4) if total_count > 0 else 0
+                portion_students = list(all_students[:quarter_count])
+
+        # Merge portion_students and given student_ids, avoiding duplicates
+        assigned_student_ids = set(student_ids)
+        for s in portion_students:
+            assigned_student_ids.add(s.id)
+
         # 1. Get or create the assignment for this checker and this subject
         assignment, created = PaperCheckerAssignment.objects.get_or_create(
             paper_checker=profile,
@@ -1043,10 +1066,10 @@ class AssignSubjectStudentsToCheckerView(APIView):
         # remove these student_ids from any other checker's assignments for this same subject.
         other_assignments = PaperCheckerAssignment.objects.filter(subject=subject).exclude(id=assignment.id)
         for other_assign in other_assignments:
-            other_assign.students.remove(*student_ids)
+            other_assign.students.remove(*assigned_student_ids)
 
         # 3. Add students to this assignment
-        students = Student.objects.filter(id__in=student_ids)
+        students = Student.objects.filter(id__in=assigned_student_ids)
         assignment.students.set(students)
 
         return response_builder(
@@ -1059,6 +1082,7 @@ class AssignSubjectStudentsToCheckerView(APIView):
             },
             status_code=status.HTTP_200_OK
         )
+
 
 class ListPaperCheckersView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
