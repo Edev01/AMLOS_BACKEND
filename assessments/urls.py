@@ -10,7 +10,11 @@ from .views import (
     DeleteAssessmentModelView,
     SubmitHandwrittenAssessmentView,
     ListStudentSubmissionsView,
-    GradeStudentAssessmentView
+    GradeStudentAssessmentView,
+    CreateExamTypeView,
+    ListExamTypesView,
+    UpdateExamTypeView,
+    DeleteExamTypeView
 )
 
 urlpatterns = [
@@ -25,4 +29,9 @@ urlpatterns = [
     path('metadata', AssessmentMetadataView.as_view(), name='assessment-metadata'),
     path('submissions', ListStudentSubmissionsView.as_view(), name='list-student-submissions'),
     path('submissions/<int:submission_id>/grade', GradeStudentAssessmentView.as_view(), name='grade-student-assessment'),
+    path('exam-types', CreateExamTypeView.as_view(), name='create-exam-type'),
+    path('exam-types/list', ListExamTypesView.as_view(), name='list-exam-types'),
+    path('exam-types/<int:id>/update', UpdateExamTypeView.as_view(), name='update-exam-type'),
+    path('exam-types/<int:id>/delete', DeleteExamTypeView.as_view(), name='delete-exam-type'),
 ]
+

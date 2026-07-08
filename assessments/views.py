@@ -11,8 +11,8 @@ from utils.response_builder import response_builder
 from accounts.permissions import IsRole
 from curriculum.models import Subject, Chapter
 from study_plans.models import StudyPlan, StudyPlanSLO
-from .models import Question, AssessmentModel, StudentAssessment
-from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer
+from .models import Question, AssessmentModel, StudentAssessment, ExamType
+from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer, ExamTypeSerializer
 
 from django.db.models import Q
 from accounts.models import PaperCheckerAssignment
@@ -624,3 +624,79 @@ class GradeStudentAssessmentView(APIView):
         except ValueError:
             return response_builder(success=False, message="Invalid score format.", status_code=status.HTTP_400_BAD_REQUEST)
 
+
+class CreateExamTypeView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def post(self, request):
+        serializer = ExamTypeSerializer(data=request.data)
+        if serializer.is_valid():
+            exam_type = serializer.save()
+            return response_builder(
+                success=True,
+                message="Exam type created successfully.",
+                data=ExamTypeSerializer(exam_type).data,
+                status_code=status.HTTP_201_CREATED
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class ListExamTypesView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def get(self, request):
+        grade = request.query_params.get('grade')
+        exam_types = ExamType.objects.all().order_by('id')
+        if grade:
+            exam_types = exam_types.filter(grade=grade)
+        serializer = ExamTypeSerializer(exam_types, many=True)
+        return response_builder(
+            success=True,
+            message="Exam types fetched successfully.",
+            data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+
+class UpdateExamTypeView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def patch(self, request, id):
+        exam_type = get_object_or_404(ExamType, id=id)
+        serializer = ExamTypeSerializer(exam_type, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return response_builder(
+                success=True,
+                message="Exam type updated successfully.",
+                data=serializer.data,
+                status_code=status.HTTP_200_OK
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+
+class DeleteExamTypeView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def delete(self, request, id):
+        exam_type = get_object_or_404(ExamType, id=id)
+        exam_type.delete()
+        return response_builder(
+            success=True,
+            message="Exam type deleted successfully.",
+            status_code=status.HTTP_200_OK
+        )

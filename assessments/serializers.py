@@ -1,16 +1,23 @@
 from rest_framework import serializers
-from .models import Question, AssessmentModel, StudentAssessment
+from .models import Question, AssessmentModel, StudentAssessment, ExamType
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Question
         fields = '__all__'
 
+class ExamTypeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExamType
+        fields = ['id', 'name', 'grade', 'created_at']
+        read_only_fields = ['created_at']
+
 class AssessmentModelSerializer(serializers.ModelSerializer):
     subject_name = serializers.CharField(source='subject.name', read_only=True)
     chapter_ids = serializers.ListField(child=serializers.IntegerField(), write_only=True)
     chapters_details = serializers.SerializerMethodField(read_only=True)
     questions = QuestionSerializer(many=True, read_only=True)
+    exam_type_detail = ExamTypeSerializer(source='exam_type', read_only=True)
     total_questions = serializers.IntegerField(required=False)
 
     class Meta:
@@ -18,7 +25,8 @@ class AssessmentModelSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'assessment_type', 'grade', 'subject', 'subject_name',
             'chapter_ids', 'chapters_details', 'cognitive_levels', 'cognitive_level_details', 'categories',
-            'total_questions', 'mcq_count', 'short_count', 'long_count', 'questions', 'duration_minutes', 'created_at'
+            'total_questions', 'mcq_count', 'short_count', 'long_count', 'questions',
+            'exam_type', 'exam_type_detail', 'duration_minutes', 'created_at'
         ]
 
     def get_chapters_details(self, obj):

@@ -32,6 +32,19 @@ class Question(models.Model):
         return f"{self.subject} - {self.question_id} - {self.question_text[:50]}"
 
 
+class ExamType(models.Model):
+    name = models.CharField(max_length=100)
+    grade = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'exam_types'
+        unique_together = ('name', 'grade')
+
+    def __str__(self):
+        return f"{self.name} ({self.grade})"
+
+
 class AssessmentModel(models.Model):
     class AssessmentType(models.TextChoices):
         CHAPTER_WISE = 'CHAPTER_WISE', 'Chapter-wise'
@@ -53,6 +66,7 @@ class AssessmentModel(models.Model):
     short_count = models.IntegerField(default=0)
     long_count = models.IntegerField(default=0)
     questions = models.ManyToManyField(Question, related_name='assessments', blank=True)
+    exam_type = models.ForeignKey(ExamType, on_delete=models.SET_NULL, null=True, blank=True, related_name='assessments')
     duration_minutes = models.IntegerField(null=True, blank=True, help_text="Duration in minutes. Leave blank/null for no time limit.")
     created_at = models.DateTimeField(auto_now_add=True)
 

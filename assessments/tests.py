@@ -259,3 +259,79 @@ class TimedAssessmentTests(APITestCase):
         q_ids = [q['question_id'] for q in data['questions']]
         self.assertIn("Q101", q_ids)
         self.assertIn("Q102", q_ids)
+
+
+from assessments.models import ExamType
+
+class ExamTypeTests(APITestCase):
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='admin@amlos.com',
+            username='admin',
+            password='password123',
+            role=User.Role.ADMIN
+        )
+        self.student = User.objects.create_user(
+            email='student@amlos.com',
+            username='student',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.admin_token = str(AccessToken.for_user(self.admin))
+        self.student_token = str(AccessToken.for_user(self.student))
+
+    def test_exam_type_crud(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+
+        # 1. Create exam types for different grades
+        res1 = self.client.post('/api/assessments/exam-types', {"name": "Mid Term", "grade": "Grade 9"}, format='json')
+        self.assertEqual(res1.status_code, status.HTTP_201_CREATED)
+        exam_type_id = res1.data['data']['id']
+
+        res2 = self.client.post('/api/assessments/exam-types', {"name": "Final Term", "grade": "Grade 9"}, format='json')
+        self.assertEqual(res2.status_code, status.HTTP_201_CREATED)
+
+        res3 = self.client.post('/api/assessments/exam-types', {"name": "Mid Term", "grade": "Grade 10"}, format='json')
+        self.assertEqual(res3.status_code, status.HTTP_201_CREATED)
+
+        # 2. List all exam types
+        list_all = self.client.get('/api/assessments/exam-types/list')
+        self.assertEqual(list_all.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_all.data['data']), 3)
+
+        # 3. List exam types filtered by grade
+        list_g9 = self.client.get('/api/assessments/exam-types/list?grade=Grade 9')
+        self.assertEqual(list_g9.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_g9.data['data']), 2)
+
+        list_g10 = self.client.get('/api/assessments/exam-types/list?grade=Grade 10')
+        self.assertEqual(list_g10.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_g10.data['data']), 1)
+
+        # 4. Update exam type
+        update_res = self.client.patch(f'/api/assessments/exam-types/{exam_type_id}/update', {"name": "Quarter Exam"}, format='json')
+        self.assertEqual(update_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_res.data['data']['name'], "Quarter Exam")
+
+        # 5. Delete exam type
+        delete_res = self.client.delete(f'/api/assessments/exam-types/{exam_type_id}/delete')
+        self.assertEqual(delete_res.status_code, status.HTTP_200_OK)
+
+        # Verify deletion
+        list_after = self.client.get('/api/assessments/exam-types/list?grade=Grade 9')
+        self.assertEqual(len(list_after.data['data']), 1)
+
+    def test_duplicate_exam_type_rejected(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        self.client.post('/api/assessments/exam-types', {"name": "Mid Term", "grade": "Grade 9"}, format='json')
+        dup = self.client.post('/api/assessments/exam-types', {"name": "Mid Term", "grade": "Grade 9"}, format='json')
+        self.assertEqual(dup.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_student_cannot_access_exam_types(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.student_token}')
+        res = self.client.post('/api/assessments/exam-types', {"name": "Mid Term", "grade": "Grade 9"}, format='json')
+        self.assertEqual(res.status_code, status.HTTP_403_FORBIDDEN)
+        res2 = self.client.get('/api/assessments/exam-types/list')
+        self.assertEqual(res2.status_code, status.HTTP_403_FORBIDDEN)
+
