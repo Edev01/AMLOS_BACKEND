@@ -11,8 +11,9 @@ from utils.response_builder import response_builder
 from accounts.permissions import IsRole
 from curriculum.models import Subject, Chapter
 from study_plans.models import StudyPlan, StudyPlanSLO
-from .models import Question, AssessmentModel, StudentAssessment, ExamType
-from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer, ExamTypeSerializer
+import pandas as pd
+from .models import Question, AssessmentModel, StudentAssessment, ExamType, QuestionBulkUpload
+from .serializers import QuestionSerializer, AssessmentModelSerializer, StudentAssessmentSerializer, ExamTypeSerializer, QuestionBulkUploadSerializer
 
 from django.db.models import Q
 from accounts.models import PaperCheckerAssignment
@@ -700,3 +701,114 @@ class DeleteExamTypeView(APIView):
             message="Exam type deleted successfully.",
             status_code=status.HTTP_200_OK
         )
+
+class BulkUploadQuestionsView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def post(self, request):
+        serializer = QuestionBulkUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+            return response_builder(
+                success=False,
+                message=errors,
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        bulk_upload = serializer.save()
+        file_obj = bulk_upload.uploaded_file
+
+        try:
+            df = pd.read_excel(file_obj.file)
+        except Exception as e:
+            return response_builder(
+                success=False,
+                message=f"Failed to read Excel file: {str(e)}",
+                data=None,
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+
+        created_count = 0
+        updated_count = 0
+
+        for idx, row in df.iterrows():
+            question_id = str(row.get('Question_ID', '')).strip()
+            subject_name = str(row.get('Subject', '')).strip()
+            if not question_id or question_id.lower() == 'nan' or not subject_name or subject_name.lower() == 'nan':
+                continue
+
+            chapter = str(row.get('Chapter', '')).strip()
+            question_type = str(row.get('Question_Type', '')).strip()
+            cognitive_level = str(row.get('Cognitive_Level', '')).strip()
+            category = str(row.get('Category', '')).strip()
+            question_text = str(row.get('Question_Text', '')).strip()
+            question_image_url = str(row.get('Question_Image_URL', '')).strip()
+            option_a = str(row.get('Option_A', '')).strip()
+            option_b = str(row.get('Option_B', '')).strip()
+            option_c = str(row.get('Option_C', '')).strip()
+            option_d = str(row.get('Option_D', '')).strip()
+            correct_option = str(row.get('Correct_Option', '')).strip()
+            short_explanation = str(row.get('Short_Explanation', '')).strip()
+            answer_text = str(row.get('Answer_Text', '')).strip()
+            answer_image_url = str(row.get('Answer_Image_URL', '')).strip()
+            
+            # Marks handling
+            marks_val = row.get('Marks', 1)
+            try:
+                marks = int(marks_val) if pd.notna(marks_val) else 1
+            except ValueError:
+                marks = 1
+
+            # Time Allowed handling
+            time_allowed_val = row.get('Time_Allowed_Minutes', 1)
+            try:
+                time_allowed = int(time_allowed_val) if pd.notna(time_allowed_val) else 1
+            except ValueError:
+                time_allowed = 1
+
+            difficulty_level = str(row.get('Difficulty_Level', '')).strip()
+            tags = str(row.get('Tags', '')).strip()
+
+            def clean_field(val):
+                if not val or val.lower() == 'nan':
+                    return None
+                return val
+
+            question, created = Question.objects.update_or_create(
+                subject=subject_name,
+                question_id=question_id,
+                defaults={
+                    'chapter': chapter,
+                    'question_type': question_type,
+                    'cognitive_level': cognitive_level,
+                    'category': category,
+                    'question_text': question_text,
+                    'question_image_url': clean_field(question_image_url),
+                    'option_a': clean_field(option_a),
+                    'option_b': clean_field(option_b),
+                    'option_c': clean_field(option_c),
+                    'option_d': clean_field(option_d),
+                    'correct_option': clean_field(correct_option),
+                    'short_explanation': clean_field(short_explanation),
+                    'answer_text': answer_text,
+                    'answer_image_url': clean_field(answer_image_url),
+                    'marks': marks,
+                    'time_allowed_minutes': time_allowed,
+                    'difficulty_level': difficulty_level,
+                    'tags': tags
+                }
+            )
+            if created:
+                created_count += 1
+            else:
+                updated_count += 1
+
+        return response_builder(
+            success=True,
+            message=f"Bulk upload successful! Created {created_count} questions and updated {updated_count} questions.",
+            data={'upload_id': bulk_upload.id},
+            status_code=status.HTTP_201_CREATED
+        )
+

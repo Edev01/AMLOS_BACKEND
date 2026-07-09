@@ -335,3 +335,85 @@ class ExamTypeTests(APITestCase):
         res2 = self.client.get('/api/assessments/exam-types/list')
         self.assertEqual(res2.status_code, status.HTTP_403_FORBIDDEN)
 
+
+import io
+import pandas as pd
+from django.core.files.uploadedfile import SimpleUploadedFile
+from assessments.models import Question, QuestionBulkUpload
+
+class QuestionBulkUploadTests(APITestCase):
+
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            email='admin@amlos.com',
+            username='admin',
+            password='password123',
+            role=User.Role.ADMIN
+        )
+        self.student = User.objects.create_user(
+            email='student@amlos.com',
+            username='student',
+            password='password123',
+            role=User.Role.STUDENT
+        )
+        self.admin_token = str(AccessToken.for_user(self.admin))
+        self.student_token = str(AccessToken.for_user(self.student))
+
+    def test_bulk_upload_questions_success(self):
+        # Create an in-memory Excel file containing mock questions
+        data = {
+            'Question_ID': ['MCQ-1-001', 'MCQ-1-002'],
+            'Subject': ['Biology', 'Biology'],
+            'Chapter': ['Cell Biology', 'Cell Biology'],
+            'Question_Type': ['MCQ', 'MCQ'],
+            'Cognitive_Level': ['Knowledge', 'Understanding'],
+            'Category': ['Conceptual', 'Book Exercise'],
+            'Question_Text': ['What is a cell?', 'What is mitochondria?'],
+            'Question_Image_URL': [None, None],
+            'Option_A': ['A', 'A'],
+            'Option_B': ['B', 'B'],
+            'Option_C': ['C', 'C'],
+            'Option_D': ['D', 'D'],
+            'Correct_Option': ['A', 'B'],
+            'Short_Explanation': ['Explanation 1', 'Explanation 2'],
+            'Answer_Text': ['Ans 1', 'Ans 2'],
+            'Answer_Image_URL': [None, None],
+            'Marks': [1, 2],
+            'Time_Allowed_Minutes': [1, 2],
+            'Difficulty_Level': ['Easy', 'Medium'],
+            'Tags': ['tag1,tag2', 'tag3,tag4']
+        }
+        df = pd.DataFrame(data)
+        excel_buffer = io.BytesIO()
+        df.to_excel(excel_buffer, index=False, engine='openpyxl')
+        excel_buffer.seek(0)
+
+        uploaded_file = SimpleUploadedFile(
+            "questions.xlsx",
+            excel_buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        url = '/api/assessments/bulk-upload'
+        response = self.client.post(url, {'uploaded_file': uploaded_file}, format='multipart')
+        
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+        self.assertIn("Bulk upload successful!", response.data['message'])
+
+        # Verify database records
+        self.assertEqual(Question.objects.count(), 2)
+        q1 = Question.objects.get(question_id='MCQ-1-001')
+        self.assertEqual(q1.subject, 'Biology')
+        self.assertEqual(q1.chapter, 'Cell Biology')
+        self.assertEqual(q1.marks, 1)
+        self.assertEqual(q1.difficulty_level, 'Easy')
+
+    def test_student_bulk_upload_questions_forbidden(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.student_token}')
+        url = '/api/assessments/bulk-upload'
+        response = self.client.post(url, {}, format='multipart')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+

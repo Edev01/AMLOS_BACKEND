@@ -93,3 +93,15 @@ class StudentAssessment(models.Model):
 
     def __str__(self):
         return f"{self.student.username} - {self.assessment_model.title} - Score: {self.score}/{self.total_marks}"
+
+
+class QuestionBulkUpload(models.Model):
+    uploaded_file = models.FileField(upload_to='question_bulk_uploads/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'question_bulk_uploads'
+
+    def __str__(self):
+        return f"Question Bulk Upload at {self.uploaded_at}"
+

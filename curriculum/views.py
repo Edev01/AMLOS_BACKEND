@@ -415,7 +415,7 @@ class ResetAcademicDataView(APIView):
 
         # Local imports to prevent circular imports
         from study_plans.models import StudyPlan, StudyPlanSLO
-        from assessments.models import AssessmentModel, Question, StudentAssessment
+        from assessments.models import AssessmentModel, Question, StudentAssessment, QuestionBulkUpload
 
         # Clear data in dependency order to prevent constraint violation errors
         StudyPlanSLO.objects.all().delete()
@@ -424,6 +424,7 @@ class ResetAcademicDataView(APIView):
         StudentAssessment.objects.all().delete()
         Question.objects.all().delete()
         AssessmentModel.objects.all().delete()
+        QuestionBulkUpload.objects.all().delete()
         
         SLO.objects.all().delete()
         Chapter.objects.all().delete()

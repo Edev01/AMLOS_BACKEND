@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Question, AssessmentModel, StudentAssessment, ExamType
+from .models import Question, AssessmentModel, StudentAssessment, ExamType, QuestionBulkUpload
 
 class QuestionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -47,3 +47,10 @@ class StudentAssessmentSerializer(serializers.ModelSerializer):
         model = StudentAssessment
         fields = ['id', 'student', 'assessment_model', 'assessment_title', 'assessment_type', 'score', 'total_marks', 'is_completed', 'started_at', 'completed_at', 'submission_file', 'questions']
         read_only_fields = ['student', 'started_at', 'completed_at']
+
+class QuestionBulkUploadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuestionBulkUpload
+        fields = ['id', 'uploaded_file', 'uploaded_at']
+        read_only_fields = ['id', 'uploaded_at']
+

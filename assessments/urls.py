@@ -14,7 +14,8 @@ from .views import (
     CreateExamTypeView,
     ListExamTypesView,
     UpdateExamTypeView,
-    DeleteExamTypeView
+    DeleteExamTypeView,
+    BulkUploadQuestionsView
 )
 
 urlpatterns = [
@@ -33,5 +34,6 @@ urlpatterns = [
     path('exam-types/list', ListExamTypesView.as_view(), name='list-exam-types'),
     path('exam-types/<int:id>/update', UpdateExamTypeView.as_view(), name='update-exam-type'),
     path('exam-types/<int:id>/delete', DeleteExamTypeView.as_view(), name='delete-exam-type'),
+    path('bulk-upload', BulkUploadQuestionsView.as_view(), name='bulk-upload-questions'),
 ]
 
