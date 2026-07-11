@@ -294,6 +294,7 @@ class CreateStudentView(APIView):
                     "email": student.user.email,
                     "roll_number": student.roll_number,
                     "grade": student.grade,
+                    "gender": student.gender,
                     "school": student.school.school_name,
                     "profile_image": student.user.profile_image
                 }
@@ -354,7 +355,7 @@ class UpdateStudentView(APIView):
                 success=True,
                 message="Student updated successfully",
                 data={
-                    "student_id": updated_student.id
+                    "student": StudentSerializer(updated_student).data
                 },
                 status_code=status.HTTP_200_OK
             )
@@ -1095,5 +1096,94 @@ class ListPaperCheckersView(APIView):
             success=True,
             message="Paper Checkers fetched successfully.",
             data=serializer.data,
+            status_code=status.HTTP_200_OK
+        )
+
+class UpdatePaperCheckerView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def patch(self, request, checker_id):
+        profile = get_object_or_404(PaperCheckerProfile, id=checker_id)
+        serializer = CreatePaperCheckerSerializer(
+            profile,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            profile = serializer.save()
+            return response_builder(
+                success=True,
+                message="Paper Checker updated successfully",
+                data={
+                    "paper_checker": PaperCheckerSerializer(profile).data
+                },
+                status_code=status.HTTP_200_OK
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+class DeletePaperCheckerView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['ADMIN']
+
+    def delete(self, request, checker_id):
+        profile = get_object_or_404(PaperCheckerProfile, id=checker_id)
+        user = profile.user
+        profile.delete()
+        if user:
+            user.delete()
+        return response_builder(
+            success=True,
+            message="Paper Checker deleted successfully",
+            status_code=status.HTTP_200_OK
+        )
+
+class PaperCheckerDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsRole]
+    allowed_roles = ['PAPER_CHECKER']
+
+    def get(self, request):
+        if not hasattr(request.user, 'paper_checker_profile'):
+            return response_builder(
+                success=False,
+                message="Paper Checker profile not found.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        profile = request.user.paper_checker_profile
+        assignments = PaperCheckerAssignment.objects.filter(paper_checker=profile).select_related('subject').prefetch_related('students', 'students__user')
+        
+        data = []
+        for assign in assignments:
+            students_list = []
+            for s in assign.students.all():
+                students_list.append({
+                    "id": s.id,
+                    "roll_number": s.roll_number,
+                    "first_name": s.user.first_name,
+                    "last_name": s.user.last_name,
+                    "email": s.user.email,
+                    "gender": getattr(s, 'gender', None),
+                    "profile_image": s.user.profile_image
+                })
+            data.append({
+                "assignment_id": assign.id,
+                "subject": {
+                    "id": assign.subject.id,
+                    "name": assign.subject.name,
+                    "grade": assign.subject.grade
+                },
+                "students": students_list
+            })
+            
+        return response_builder(
+            success=True,
+            message="Assigned data retrieved successfully.",
+            data={"assignments": data},
             status_code=status.HTTP_200_OK
         )

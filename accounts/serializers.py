@@ -162,6 +162,7 @@ class CreateStudentSerializer(serializers.ModelSerializer):
             'roll_number',
             'grade',
             'section',
+            'gender',
             'date_of_birth',
             'guardian_phone',
             'guardian_name',
@@ -269,6 +270,7 @@ class StudentSerializer(serializers.ModelSerializer):
             'roll_number', 
             'grade', 
             'section',
+            'gender',
             'state',
             'date_of_birth', 
             'enrollment_date',
@@ -426,19 +428,35 @@ class ResetPasswordByRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=['SCHOOL', 'TEACHER', 'STUDENT', 'PAPER_CHECKER'], required=True)
 
 class CreatePaperCheckerSerializer(serializers.Serializer):
-    username = serializers.CharField(max_length=150)
-    password = serializers.CharField(write_only=True, min_length=6)
-    email = serializers.EmailField()
+    username = serializers.CharField(max_length=150, required=False)
+    password = serializers.CharField(write_only=True, min_length=6, required=False)
+    email = serializers.EmailField(required=True)
+    first_name = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True)
+    last_name = serializers.CharField(max_length=150, required=False, allow_blank=True, allow_null=True)
     profile_image = serializers.URLField(required=False, allow_null=True, allow_blank=True)
     phone = serializers.CharField(max_length=20, required=False, allow_blank=True, allow_null=True)
 
+    def validate(self, attrs):
+        # Password is required only on creation
+        if not self.instance and 'password' not in attrs:
+            raise serializers.ValidationError({"password": "Password is required for creation."})
+        return attrs
+
     def validate_username(self, value):
-        if User.objects.filter(username=value).exists():
+        user = getattr(self.instance, 'user', None) if self.instance else None
+        qs = User.objects.filter(username=value)
+        if user:
+            qs = qs.exclude(id=user.id)
+        if qs.exists():
             raise serializers.ValidationError("Username already exists.")
         return value
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        user = getattr(self.instance, 'user', None) if self.instance else None
+        qs = User.objects.filter(email=value)
+        if user:
+            qs = qs.exclude(id=user.id)
+        if qs.exists():
             raise serializers.ValidationError("Email already exists.")
         return value
 
@@ -450,12 +468,43 @@ class CreatePaperCheckerSerializer(serializers.Serializer):
                 email=validated_data['email'],
                 password=validated_data['password'],
                 role=User.Role.PAPER_CHECKER,
+                first_name=validated_data.get('first_name', ''),
+                last_name=validated_data.get('last_name', ''),
                 profile_image=validated_data.get('profile_image'),
                 phone=validated_data.get('phone'),
                 created_by=self.context['request'].user
             )
             profile = PaperCheckerProfile.objects.create(user=user)
             return profile
+
+    def update(self, instance, validated_data):
+        user = instance.user
+        email = validated_data.get('email')
+        username = validated_data.get('username')
+        password = validated_data.get('password')
+        first_name = validated_data.get('first_name')
+        last_name = validated_data.get('last_name')
+        profile_image = validated_data.get('profile_image')
+        phone = validated_data.get('phone')
+
+        if email is not None:
+            user.email = email
+            user.username = email
+        if username is not None:
+            user.username = username
+        if password is not None:
+            user.set_password(password)
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if profile_image is not None:
+            user.profile_image = profile_image
+        if phone is not None:
+            user.phone = phone
+            
+        user.save()
+        return instance
 
 class PaperCheckerSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='user.first_name', read_only=True)

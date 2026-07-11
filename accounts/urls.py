@@ -28,4 +28,7 @@ urlpatterns = [
     path('paper-checkers', ListPaperCheckersView.as_view(), name='list-paper-checkers'),
     path('paper-checkers/create', CreatePaperCheckerView.as_view(), name='create-paper-checker'),
     path('paper-checkers/<int:checker_id>/assign', AssignSubjectStudentsToCheckerView.as_view(), name='assign-paper-checker'),
+    path('paper-checkers/<int:checker_id>/update', UpdatePaperCheckerView.as_view(), name='update-paper-checker'),
+    path('paper-checkers/<int:checker_id>/delete', DeletePaperCheckerView.as_view(), name='delete-paper-checker'),
+    path('paper-checkers/dashboard', PaperCheckerDashboardView.as_view(), name='paper-checker-dashboard'),
 ]

@@ -707,4 +707,90 @@ class PaperCheckerTests(APITestCase):
         self.assertIn(self.student.id, assign_response.data['data']['student_ids'])
         self.assertIn(student2.id, assign_response.data['data']['student_ids'])
 
+    def test_student_gender_field(self):
+        # 1. Test creation with gender
+        school_token = str(AccessToken.for_user(self.school_user))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {school_token}')
+        student_url = '/api/auth/students/create'
+        student_payload = {
+            "username": "new_student_gen@amlos.com",
+            "password": "password123",
+            "email": "new_student_gen@amlos.com",
+            "roll_number": "S101",
+            "grade": "Grade 9",
+            "gender": "Male"
+        }
+        res = self.client.post(student_url, student_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(res.data['data']['student']['gender'], "Male")
+        student_id = res.data['data']['student']['id']
+
+        # 2. Test editing student with gender
+        update_url = f'/api/auth/students/{student_id}'
+        update_payload = {
+            "gender": "Female"
+        }
+        update_res = self.client.patch(update_url, update_payload, format='json')
+        self.assertEqual(update_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_res.data['data']['student']['gender'], "Female")
+
+    def test_paper_checker_edit_delete_and_dashboard(self):
+        # Create a paper checker
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        create_url = '/api/auth/paper-checkers/create'
+        create_payload = {
+            "username": "checker_crud@amlos.com",
+            "password": "password123",
+            "email": "checker_crud@amlos.com",
+            "first_name": "Initial_First",
+            "last_name": "Initial_Last",
+            "phone": "12345"
+        }
+        res = self.client.post(create_url, create_payload, format='json')
+        self.assertEqual(res.status_code, status.HTTP_201_CREATED)
+        checker_id = res.data['data']['paper_checker']['id']
+        self.assertEqual(res.data['data']['paper_checker']['first_name'], "Initial_First")
+
+        # 1. Update Paper Checker
+        update_url = f'/api/auth/paper-checkers/{checker_id}/update'
+        update_payload = {
+            "first_name": "Updated_First",
+            "phone": "99999"
+        }
+        update_res = self.client.patch(update_url, update_payload, format='json')
+        self.assertEqual(update_res.status_code, status.HTTP_200_OK)
+        self.assertEqual(update_res.data['data']['paper_checker']['first_name'], "Updated_First")
+        self.assertEqual(update_res.data['data']['paper_checker']['phone'], "99999")
+
+        # 2. Assign subject and student
+        assign_url = f'/api/auth/paper-checkers/{checker_id}/assign'
+        assign_payload = {
+            "subject_id": self.subject.id,
+            "student_ids": [self.student.id]
+        }
+        assign_res = self.client.post(assign_url, assign_payload, format='json')
+        self.assertEqual(assign_res.status_code, status.HTTP_200_OK)
+
+        # 3. Test Paper Checker Dashboard
+        checker_user = User.objects.get(email="checker_crud@amlos.com")
+        checker_token = str(AccessToken.for_user(checker_user))
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {checker_token}')
+        
+        dash_url = '/api/auth/paper-checkers/dashboard'
+        dash_res = self.client.get(dash_url)
+        self.assertEqual(dash_res.status_code, status.HTTP_200_OK)
+        assignments = dash_res.data['data']['assignments']
+        self.assertEqual(len(assignments), 1)
+        self.assertEqual(assignments[0]['subject']['id'], self.subject.id)
+        self.assertEqual(assignments[0]['students'][0]['id'], self.student.id)
+
+        # 4. Delete Paper Checker
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        delete_url = f'/api/auth/paper-checkers/{checker_id}/delete'
+        delete_res = self.client.delete(delete_url)
+        self.assertEqual(delete_res.status_code, status.HTTP_200_OK)
+
+        # Verify deletion from DB
+        self.assertFalse(PaperCheckerProfile.objects.filter(id=checker_id).exists())
+
 

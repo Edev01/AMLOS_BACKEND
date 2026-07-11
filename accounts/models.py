@@ -97,6 +97,7 @@ class Student(models.Model):
     roll_number = models.CharField(max_length=50, unique=True)
     grade = models.CharField(max_length=20)
     section = models.CharField(max_length=20, null=True, blank=True)
+    gender = models.CharField(max_length=20, null=True, blank=True)
     state = models.CharField(max_length=100, null=True, blank=True)
 
     date_of_birth = models.DateField(null=True, blank=True)
