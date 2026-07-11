@@ -9,6 +9,24 @@ from rest_framework import serializers
 from django.db import transaction
 from accounts.models import User, Admin
 
+def generate_username_suggestion(username):
+    if "@" in username:
+        local_part, domain = username.split("@", 1)
+        counter = 1
+        while True:
+            candidate = f"{local_part}{counter}@{domain}"
+            if not User.objects.filter(username=candidate).exists():
+                return candidate
+            counter += 1
+    else:
+        counter = 1
+        while True:
+            candidate = f"{username}{counter}"
+            if not User.objects.filter(username=candidate).exists():
+                return candidate
+            counter += 1
+
+
 class CustomTokenSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):
@@ -86,7 +104,8 @@ class CreateSchoolSerializer(serializers.Serializer):
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username already exists.")
+            suggestion = generate_username_suggestion(value)
+            raise serializers.ValidationError(f"Username already exists, try using @{suggestion}")
         return value
 
     def validate_email(self, value):
@@ -171,7 +190,8 @@ class CreateStudentSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username already exists.")
+            suggestion = generate_username_suggestion(value)
+            raise serializers.ValidationError(f"Username already exists, try using @{suggestion}")
         return value
 
     def create(self, validated_data):
@@ -306,7 +326,8 @@ class CreateTeacherSerializer(serializers.ModelSerializer):
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username already exists.")
+            suggestion = generate_username_suggestion(value)
+            raise serializers.ValidationError(f"Username already exists, try using @{suggestion}")
         return value
 
     def create(self, validated_data):
@@ -448,7 +469,8 @@ class CreatePaperCheckerSerializer(serializers.Serializer):
         if user:
             qs = qs.exclude(id=user.id)
         if qs.exists():
-            raise serializers.ValidationError("Username already exists.")
+            suggestion = generate_username_suggestion(value)
+            raise serializers.ValidationError(f"Username already exists, try using @{suggestion}")
         return value
 
     def validate_email(self, value):

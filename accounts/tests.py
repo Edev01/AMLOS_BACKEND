@@ -636,7 +636,7 @@ class PaperCheckerTests(APITestCase):
         teacher_response = self.client.post(teacher_url, teacher_payload, format='json')
         self.assertEqual(teacher_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(teacher_response.data['success'])
-        self.assertIn("Username already exists.", teacher_response.data['message'])
+        self.assertIn("Username already exists, try using @admin1", teacher_response.data['message'])
 
         # 2. Attempt to create student with existing username (e.g. 'admin')
         student_url = '/api/auth/students/create'
@@ -650,7 +650,7 @@ class PaperCheckerTests(APITestCase):
         student_response = self.client.post(student_url, student_payload, format='json')
         self.assertEqual(student_response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(student_response.data['success'])
-        self.assertIn("Username already exists.", student_response.data['message'])
+        self.assertIn("Username already exists, try using @admin1", student_response.data['message'])
 
     def test_checker_portion_assignment(self):
         # Update self.student to have Grade 9
