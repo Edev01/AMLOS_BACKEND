@@ -25,7 +25,7 @@ from django.db.models import Q
 
 from study_plans.models import StudyPlan
 from curriculum.models import Subject
-from accounts.models import PaperCheckerProfile, PaperCheckerAssignment
+from accounts.models import PaperCheckerProfile, PaperCheckerAssignment, TestURL
 
 class LoginView(APIView):
     permission_classes = []  
@@ -1186,4 +1186,25 @@ class PaperCheckerDashboardView(APIView):
             message="Assigned data retrieved successfully.",
             data={"assignments": data},
             status_code=status.HTTP_200_OK
+        )
+
+
+class SaveTestURLView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = TestURLSerializer(data=request.data)
+        if serializer.is_valid():
+            test_url = serializer.save()
+            return response_builder(
+                success=True,
+                message="URL saved successfully.",
+                data=TestURLSerializer(test_url).data,
+                status_code=status.HTTP_201_CREATED
+            )
+        errors = " ".join([str(err[0]) for err in serializer.errors.values()])
+        return response_builder(
+            success=False,
+            message=errors,
+            status_code=status.HTTP_400_BAD_REQUEST
         )

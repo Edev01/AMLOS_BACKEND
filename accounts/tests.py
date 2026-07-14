@@ -793,4 +793,28 @@ class PaperCheckerTests(APITestCase):
         # Verify deletion from DB
         self.assertFalse(PaperCheckerProfile.objects.filter(id=checker_id).exists())
 
+    def test_save_test_url_api(self):
+        url = '/api/auth/save-url'
+        payload = {
+            "url": "https://decoded-url-from-the-qr.com",
+            "source": "https://example.com/qr-image.png",
+            "pageUrl": "https://example.com/page-it-was-found-on"
+        }
+        self.client.credentials()
+        response = self.client.post(url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['data']['url'], "https://decoded-url-from-the-qr.com")
+        self.assertEqual(response.data['data']['source'], "https://example.com/qr-image.png")
+        self.assertEqual(response.data['data']['pageUrl'], "https://example.com/page-it-was-found-on")
+
+        # Verify it was saved in the DB
+        from accounts.models import TestURL
+        self.assertEqual(TestURL.objects.count(), 1)
+        db_obj = TestURL.objects.first()
+        self.assertEqual(db_obj.url, "https://decoded-url-from-the-qr.com")
+        self.assertEqual(db_obj.source, "https://example.com/qr-image.png")
+        self.assertEqual(db_obj.page_url, "https://example.com/page-it-was-found-on")
+
+
 

@@ -221,3 +221,16 @@ class PaperCheckerAssignment(models.Model):
 
     def __str__(self):
         return f"Checker {self.paper_checker.user.email} - Subject {self.subject.name}"
+
+
+class TestURL(models.Model):
+    url = models.TextField()
+    source = models.TextField(null=True, blank=True)
+    page_url = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "test_urls"
+
+    def __str__(self):
+        return f"TestURL: {self.url[:50]}"

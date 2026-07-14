@@ -31,4 +31,5 @@ urlpatterns = [
     path('paper-checkers/<int:checker_id>/update', UpdatePaperCheckerView.as_view(), name='update-paper-checker'),
     path('paper-checkers/<int:checker_id>/delete', DeletePaperCheckerView.as_view(), name='delete-paper-checker'),
     path('paper-checkers/dashboard', PaperCheckerDashboardView.as_view(), name='paper-checker-dashboard'),
+    path('save-url', SaveTestURLView.as_view(), name='save-test-url'),
 ]

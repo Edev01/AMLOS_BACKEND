@@ -2,7 +2,7 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from accounts.models import User, School, Student, Teacher, PaperCheckerProfile, PaperCheckerAssignment
+from accounts.models import User, School, Student, Teacher, PaperCheckerProfile, PaperCheckerAssignment, TestURL
 from django.db import transaction
 # Admin signup serializer.
 from rest_framework import serializers
@@ -538,3 +538,11 @@ class PaperCheckerSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaperCheckerProfile
         fields = ['id', 'email', 'first_name', 'last_name', 'profile_image', 'phone']
+
+
+class TestURLSerializer(serializers.ModelSerializer):
+    pageUrl = serializers.CharField(source='page_url', required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = TestURL
+        fields = ['id', 'url', 'source', 'pageUrl', 'created_at']
