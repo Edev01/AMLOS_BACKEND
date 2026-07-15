@@ -288,13 +288,55 @@ class DeleteGradeView(APIView):
 
     def delete(self, request, grade_id):
         grade = get_object_or_404(Grade, id=grade_id)
+        
+        # Local imports to prevent circular dependency
+        from curriculum.models import Subject, Chapter, SLO
+        from study_plans.models import StudyPlanSLO
+        from assessments.models import AssessmentModel, StudentAssessment
+        from django.db.models import Q
+
+        grade_name = grade.name
+        
+        # Find subjects matching this grade
+        subjects_to_delete = Subject.objects.filter(grade__iexact=grade_name)
+        if not subjects_to_delete.exists():
+            if "grade" in grade_name.lower():
+                clean_num = grade_name.lower().replace("grade", "").strip()
+                subjects_to_delete = Subject.objects.filter(
+                    Q(grade__iexact=grade_name) | Q(grade__iexact=clean_num)
+                )
+            else:
+                with_prefix = f"Grade {grade_name}"
+                subjects_to_delete = Subject.objects.filter(
+                    Q(grade__iexact=grade_name) | Q(grade__iexact=with_prefix)
+                )
+
+        # Clear curriculum items in dependency order
+        chapters = Chapter.objects.filter(subject__in=subjects_to_delete)
+        slos = SLO.objects.filter(chapter__in=chapters)
+
+        # Delete dependent study plan tasks
+        StudyPlanSLO.objects.filter(slo__in=slos).delete()
+
+        # Delete dependent assessment student attempts and models
+        StudentAssessment.objects.filter(assessment_model__subject__in=subjects_to_delete).delete()
+        AssessmentModel.objects.filter(subject__in=subjects_to_delete).delete()
+
+        # Delete curriculum objects
+        slos.delete()
+        chapters.delete()
+        subjects_to_delete.delete()
+
+        # Delete the grade
         grade.delete()
+
         return response_builder(
             success=True,
-            message="Grade deleted successfully",
+            message="Grade and all its curriculum data deleted successfully",
             data=None,
             status_code=status.HTTP_200_OK
         )
+
 
 class UpdateSubjectView(APIView):
     permission_classes = [IsAuthenticated, IsRole]

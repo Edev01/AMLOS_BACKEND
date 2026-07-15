@@ -112,3 +112,30 @@ class AcademicResetTests(APITestCase):
         payload = {"password": "password123"}
         response = self.client.post(url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_delete_grade_cascades_curriculum(self):
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        
+        # Verify initial count
+        self.assertEqual(Grade.objects.count(), 1)
+        self.assertEqual(Subject.objects.count(), 1)
+        self.assertEqual(Chapter.objects.count(), 1)
+        self.assertEqual(SLO.objects.count(), 1)
+        self.assertEqual(AssessmentModel.objects.count(), 1)
+        self.assertEqual(StudyPlanSLO.objects.count(), 1)
+        
+        # Call Delete Grade View
+        url = f'/api/curriculum/grades/{self.grade.id}/delete'
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['success'])
+        self.assertEqual(response.data['message'], "Grade and all its curriculum data deleted successfully")
+
+        # Verify cascade deletion
+        self.assertEqual(Grade.objects.count(), 0)
+        self.assertEqual(Subject.objects.count(), 0)
+        self.assertEqual(Chapter.objects.count(), 0)
+        self.assertEqual(SLO.objects.count(), 0)
+        self.assertEqual(AssessmentModel.objects.count(), 0)
+        self.assertEqual(StudyPlanSLO.objects.count(), 0)
+
