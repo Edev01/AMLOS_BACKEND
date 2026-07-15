@@ -1101,10 +1101,20 @@ class ListPaperCheckersView(APIView):
 
 class UpdatePaperCheckerView(APIView):
     permission_classes = [IsAuthenticated, IsRole]
-    allowed_roles = ['ADMIN']
+    allowed_roles = ['ADMIN', 'PAPER_CHECKER']
 
     def patch(self, request, checker_id):
         profile = get_object_or_404(PaperCheckerProfile, id=checker_id)
+        
+        # Check permissions: Paper Checkers can only update their own profile
+        if request.user.role == 'PAPER_CHECKER':
+            if not hasattr(request.user, 'paper_checker_profile') or request.user.paper_checker_profile.id != profile.id:
+                return response_builder(
+                    success=False,
+                    message="You are not authorized to update this profile.",
+                    status_code=status.HTTP_403_FORBIDDEN
+                )
+
         serializer = CreatePaperCheckerSerializer(
             profile,
             data=request.data,
@@ -1127,6 +1137,7 @@ class UpdatePaperCheckerView(APIView):
             message=errors,
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
 
 class DeletePaperCheckerView(APIView):
     permission_classes = [IsAuthenticated, IsRole]

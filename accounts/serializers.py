@@ -534,10 +534,38 @@ class PaperCheckerSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     profile_image = serializers.URLField(source='user.profile_image', read_only=True)
     phone = serializers.CharField(source='user.phone', read_only=True)
+    assignments = serializers.SerializerMethodField()
 
     class Meta:
         model = PaperCheckerProfile
-        fields = ['id', 'email', 'first_name', 'last_name', 'profile_image', 'phone']
+        fields = ['id', 'email', 'first_name', 'last_name', 'profile_image', 'phone', 'assignments']
+
+    def get_assignments(self, obj):
+        assignments_qs = obj.assignments.all().select_related('subject').prefetch_related('students', 'students__user')
+        data = []
+        for assign in assignments_qs:
+            students_list = []
+            for s in assign.students.all():
+                students_list.append({
+                    "id": s.id,
+                    "roll_number": s.roll_number,
+                    "first_name": s.user.first_name,
+                    "last_name": s.user.last_name,
+                    "email": s.user.email,
+                    "gender": getattr(s, 'gender', None),
+                    "profile_image": s.user.profile_image
+                })
+            data.append({
+                "assignment_id": assign.id,
+                "subject": {
+                    "id": assign.subject.id,
+                    "name": assign.subject.name,
+                    "grade": assign.subject.grade
+                },
+                "students": students_list
+            })
+        return data
+
 
 
 class TestURLSerializer(serializers.ModelSerializer):

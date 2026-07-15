@@ -771,6 +771,16 @@ class PaperCheckerTests(APITestCase):
         assign_res = self.client.post(assign_url, assign_payload, format='json')
         self.assertEqual(assign_res.status_code, status.HTTP_200_OK)
 
+        # Verify checker list endpoint includes assignments
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {self.admin_token}')
+        list_res = self.client.get('/api/auth/paper-checkers')
+        self.assertEqual(list_res.status_code, status.HTTP_200_OK)
+        checkers = list_res.data['data']
+        checker_obj = next(c for c in checkers if c['id'] == checker_id)
+        self.assertEqual(len(checker_obj['assignments']), 1)
+        self.assertEqual(checker_obj['assignments'][0]['subject']['id'], self.subject.id)
+        self.assertEqual(checker_obj['assignments'][0]['students'][0]['id'], self.student.id)
+
         # 3. Test Paper Checker Dashboard
         checker_user = User.objects.get(email="checker_crud@amlos.com")
         checker_token = str(AccessToken.for_user(checker_user))
