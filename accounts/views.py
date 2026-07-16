@@ -1219,3 +1219,23 @@ class SaveTestURLView(APIView):
             message=errors,
             status_code=status.HTTP_400_BAD_REQUEST
         )
+
+
+class GetLatestTestURLView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        latest_url = TestURL.objects.order_by('-created_at', '-id').first()
+        if not latest_url:
+            return response_builder(
+                success=False,
+                message="No URL found.",
+                data=None,
+                status_code=status.HTTP_404_NOT_FOUND
+            )
+        return response_builder(
+            success=True,
+            message="Latest URL retrieved successfully.",
+            data=TestURLSerializer(latest_url).data,
+            status_code=status.HTTP_200_OK
+        )
